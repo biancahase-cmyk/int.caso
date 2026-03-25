@@ -1218,13 +1218,13 @@ function buildComentarios() {
   const el=document.getElementById('tab-comentarios');
 
   // Valores de filtro atuais
-  const fTipo=document.getElementById('com-f-tipo')?.value||'ALL';
-  const fCdu =document.getElementById('com-f-cdu')?.value ||'ALL';
-  const fSol =document.getElementById('com-f-sol')?.value ||'ALL';
+  const fTipo =document.getElementById('com-f-tipo')?.value ||'ALL';
+  const fTeam =document.getElementById('com-f-team')?.value ||'ALL';
+  const fCanal=document.getElementById('com-f-canal')?.value||'ALL';
+  const fProc =document.getElementById('com-f-proc')?.value ||'ALL';
 
-  // Opções dinâmicas
-  const cdus    =[...new Set(allComments.map(c=>c.cdu).filter(Boolean))].sort();
-  const solucoes=[...new Set(allComments.map(c=>c.solucao).filter(Boolean))].sort();
+  // Opções dinâmicas para Processo
+  const processos=[...new Set(allComments.map(c=>c.processo).filter(Boolean))].sort();
 
   const filtersHtml=`<div class="section-filters" style="margin-bottom:14px">
     <span class="sf-lbl">Filtrar:</span>
@@ -1235,23 +1235,33 @@ function buildComentarios() {
         <option value="NEUTRO"   ${fTipo==='NEUTRO'?'selected':''}>Neutros</option>
         <option value="PROMOTOR" ${fTipo==='PROMOTOR'?'selected':''}>Promotores</option>
       </select></div>
-    ${cdus.length?`<div class="fg"><label>CDU</label>
-      <select class="sfsel" id="com-f-cdu" onchange="buildComentarios()">
+    <div class="fg"><label>Equipe</label>
+      <select class="sfsel" id="com-f-team" onchange="buildComentarios()">
+        <option value="ALL">Todas</option>
+        <option value="BR_Buyers_Pre_Entrega"  ${fTeam==='BR_Buyers_Pre_Entrega'?'selected':''}>Pré-Entrega</option>
+        <option value="BR_Buyers_Post_Entrega" ${fTeam==='BR_Buyers_Post_Entrega'?'selected':''}>Pós-Entrega</option>
+        <option value="BR_Buyers_Compra"       ${fTeam==='BR_Buyers_Compra'?'selected':''}>Compra</option>
+      </select></div>
+    <div class="fg"><label>Canal</label>
+      <select class="sfsel" id="com-f-canal" onchange="buildComentarios()">
         <option value="ALL">Todos</option>
-        ${cdus.map(c=>`<option value="${c}" ${fCdu===c?'selected':''}>${c}</option>`).join('')}
-      </select></div>`:''}
-    ${solucoes.length?`<div class="fg"><label>Solução</label>
-      <select class="sfsel" id="com-f-sol" onchange="buildComentarios()">
+        <option value="MULTICANAL C2C"  ${fCanal==='MULTICANAL C2C'?'selected':''}>C2C</option>
+        <option value="MULTICANAL CHAT" ${fCanal==='MULTICANAL CHAT'?'selected':''}>Chat</option>
+        <option value="OFFLINE"         ${fCanal==='OFFLINE'?'selected':''}>Offline</option>
+      </select></div>
+    <div class="fg"><label>Processo</label>
+      <select class="sfsel" id="com-f-proc" onchange="buildComentarios()">
         <option value="ALL">Todos</option>
-        ${solucoes.map(s=>`<option value="${s}" ${fSol===s?'selected':''}>${s}</option>`).join('')}
-      </select></div>`:''}
+        ${processos.map(p=>`<option value="${p}" ${fProc===p?'selected':''}>${p.length>38?p.slice(0,36)+'…':p}</option>`).join('')}
+      </select></div>
   </div>`;
 
   // Aplicar filtros
   let comments=allComments;
-  if(fTipo!=='ALL') comments=comments.filter(c=>c.tipo===fTipo);
-  if(fCdu !=='ALL') comments=comments.filter(c=>c.cdu===fCdu);
-  if(fSol !=='ALL') comments=comments.filter(c=>c.solucao===fSol);
+  if(fTipo !=='ALL') comments=comments.filter(c=>c.tipo===fTipo);
+  if(fTeam !=='ALL') comments=comments.filter(c=>c.team===fTeam);
+  if(fCanal!=='ALL') comments=comments.filter(c=>c.ch===fCanal);
+  if(fProc !=='ALL') comments=comments.filter(c=>c.processo===fProc);
 
   // Atualizar badge com o total filtrado
   document.getElementById('tbadge-comentarios').textContent=comments.length||'0';
