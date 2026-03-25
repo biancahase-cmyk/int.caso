@@ -760,7 +760,7 @@ function buildSimulation() {
       <td style="width:24px;font-size:11px;font-weight:700;color:#bbb;padding:6px 4px">${i+1}</td>
       <td style="font-size:11px;padding:6px 8px;max-width:220px">
         <div style="font-weight:600;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${sg.key}">${sg.key}</div>
-        <div style="font-size:10px;color:#999;margin-top:1px">${fmtEnc(sg.enc)} enc · Oport.: ${Math.round(sg.opp)}</div>
+        <div style="font-size:10px;color:#999;margin-top:1px">${fmtEnc(sg.enc)} enc</div>
       </td>
       <td style="width:70px;text-align:right;font-size:11px;font-weight:700;color:#F23D4F;padding:6px 6px">${fmtGap(sg.gap)} pp</td>
       <td style="width:80px;text-align:right;padding:6px 6px">
@@ -853,7 +853,6 @@ function buildImpactSection(containerId, segs, opts={}) {
       <td class="tr" style="width:60px;font-size:11px;color:#3483FA;font-weight:700">${fmtNPS(s.nps)}</td>
       <td class="tr" style="width:60px;font-size:11px;color:#9CA3AF">${fmtNPS(s.target)}</td>
       <td class="tr" style="width:70px;font-size:11px;color:#888">${fmtEnc(s.enc)}</td>
-      <td class="tr" style="width:70px"><span class="opp-pill ${oppCls(s.opp)}">${Math.round(s.opp)}</span></td>
       ${hasDet?`<td class="tr" style="width:70px;font-size:11px;color:#F23D4F">${s.det?fmtEnc(s.det):'—'}</td>`:''}
     </tr>`;
   }).join('');
@@ -866,7 +865,6 @@ function buildImpactSection(containerId, segs, opts={}) {
       <th class="tr">NPS</th>
       <th class="tr">Meta</th>
       <th class="tr">Volume</th>
-      <th class="tr" title="Volume × |GAP negativo|">Oportunidade</th>
       ${hasDet?'<th class="tr">Detratores</th>':''}
     </tr></thead>
     <tbody>${rows}</tbody>
@@ -1183,7 +1181,6 @@ function buildComentarios() {
       <thead><tr>
         <th>#</th><th>Processo</th>
         <th class="tr">GAP</th><th class="tr">Volume</th><th class="tr">Detratores</th>
-        <th class="tr" title="Volume × |GAP negativo|">Oportunidade</th>
       </tr></thead>
       <tbody>${procSegs.map((s,i)=>`<tr>
         <td>${i+1}</td>
@@ -1191,7 +1188,6 @@ function buildComentarios() {
         <td class="tr val-neg">${fmtGap(s.gap)} pp</td>
         <td class="tr">${fmtEnc(s.enc)}</td>
         <td class="tr val-neg">${fmtEnc(s.det)}</td>
-        <td class="tr ${oppCls(s.opp)}">${Math.round(s.opp)}</td>
       </tr>`).join('')}</tbody>
     </table></div>
   </div>
