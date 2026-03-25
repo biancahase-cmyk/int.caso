@@ -1338,7 +1338,7 @@ function renderTLOutlier(){
     const ch=normCh(r.ch);
     return `<tr style="${isBad?'background:#FFF8F8':isGood?'background:#F0FFF8':''}">
       <td class="tc">${rankIcon}</td>
-      <td style="font-size:10px;font-family:monospace;color:#888">${r.team_id}</td>
+      <td><strong style="font-size:12px">${r.tl_name||r.tl_ldap||'—'}</strong><br><span style="font-size:9px;color:#aaa">${r.tl_ldap||''}</span></td>
       <td style="font-size:11px;color:#777">${r.team.replace('BR_Buyers_','')}</td>
       <td class="tc">${chTagHtml(ch)}</td>
       <td><strong>${r.office}</strong></td>
@@ -1351,16 +1351,16 @@ function renderTLOutlier(){
 
   return `
   <div class="panel">
-    <div class="sec-title">Outliers por Time (TL Level) <span style="font-weight:400;font-size:10px;color:#aaa">semana ${DATES.wa} · mín. 5 enc./time</span></div>
+    <div class="sec-title">Outliers por TL <span style="font-weight:400;font-size:10px;color:#aaa">semana ${DATES.wa} · mín. 5 enc.</span></div>
     <div style="font-size:10px;color:#999;margin-bottom:12px">
-      Cada linha = 1 USER_TEAM_ID (≈ 1 squad de TL). Ordenado do pior GAP para o melhor.
+      Cada linha = 1 TL. Ordenado do pior GAP para o melhor.
       <span class="outlier-rank rank-bad" style="display:inline-block;margin:0 4px">●</span>Piores
       <span class="outlier-rank rank-good" style="display:inline-block;margin:0 4px">●</span>Melhores
     </div>
     <div style="overflow-x:auto">
     <table>
       <thead><tr>
-        <th class="tc"></th><th>Team ID</th><th>Time</th><th class="tc">Canal</th><th>Office</th>
+        <th class="tc"></th><th>TL</th><th>Time</th><th class="tc">Canal</th><th>Office</th>
         <th class="tr">NPS</th><th class="tr">Target</th><th class="tr">GAP</th><th class="tr">Enc.</th>
       </tr></thead>
       <tbody>${trs}</tbody>
@@ -1418,7 +1418,7 @@ function renderRepOutlier(){
   const omitted=n-worst.length-best.length;
 
   const makeRow=(r,isBad,isGood)=>`<tr style="${isBad?'background:#FFF8F8':isGood?'background:#F0FFF8':''}">
-    <td style="font-size:10px;font-family:monospace;color:#666">${r.rep_id}</td>
+    <td><strong style="font-size:12px">${r.rep_name||r.rep_ldap||'—'}</strong><br><span style="font-size:9px;color:#aaa">${r.rep_ldap||''}</span></td>
     <td style="font-size:11px;color:#777">${r.team.replace('BR_Buyers_','')}</td>
     <td class="tc">${chTagHtml(r.ch)}</td>
     <td><strong>${r.office}</strong></td>
@@ -1446,7 +1446,7 @@ function renderRepOutlier(){
     <div style="overflow-x:auto">
     <table>
       <thead><tr>
-        <th>Rep ID</th><th>Time</th><th class="tc">Canal</th><th>Office</th><th class="tc">Senior.</th>
+        <th>Rep</th><th>Time</th><th class="tc">Canal</th><th>Office</th><th class="tc">Senior.</th>
         <th class="tr">NPS Rep</th><th class="tr">Média Office</th><th class="tr">Δ NPS</th>
         <th class="tr">GAP_TGT</th><th class="tr">Enc.</th>
       </tr></thead>

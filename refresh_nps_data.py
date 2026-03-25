@@ -29,6 +29,10 @@ WITH BASE_NPS_Y20_DETAIL AS (
     NP.USER_OFFICE,
     NP.PRO_PROCESS_NAME,
     NP.ANTIGUEDAD_REP,
+    NP.CX_USER_LDAP,
+    NP.CX_USER_NAME,
+    NP.CX_USER_TEAM_LEADER_LDAP,
+    NP.CX_USER_TEAM_LEADER_NAME,
     NP.RES_END_DATE,
     NP.NPS,
     NP.SURVEY_TARGET_VALUE,
@@ -166,37 +170,14 @@ GROUP BY 1, 2, 3, 4, 5, 6
 ORDER BY 1, 2, 3, 4, 5
 """
 
-# ── QUERY 4: nível TL (agrupado por USER_TEAM_ID — cada team = ~1 TL) ─────────
+# ── QUERY 4: nível TL (agrupado por CX_USER_TEAM_LEADER_LDAP) ─────────────────
 QUERY_TEAM = BASE_CTE + """
 SELECT
-  CAST(NP.USER_TEAM_ID AS STRING)                                AS TEAM_ID,
+  NP.CX_USER_TEAM_LEADER_LDAP                                   AS TL_LDAP,
+  NP.CX_USER_TEAM_LEADER_NAME                                   AS TL_NAME,
   NP.USER_TEAM_NAME,
   NP.USER_TEAM_CHANNEL,
   NP.USER_OFFICE,
-  FORMAT_DATE('%Y-%m-%d', DATE_TRUNC(NP.RES_END_DATE, ISOWEEK)) AS PERIODO,
-  'SEMANA'                                                        AS TIPO,
-  COUNT(*)                                                        AS ENCUESTAS,
-  ROUND(AVG(NP.GAP_TGT) * 100, 2)                               AS GAP_TGT,
-  ROUND((SUM(NP.PROMOTER) - SUM(NP.DETRACTOR)) * 100.0
-        / NULLIF(COUNT(*), 0), 2)                                AS NPS,
-  ROUND(AVG(NP.SURVEY_TARGET_VALUE) * 100, 2)                   AS TARGET
-FROM BASE_NPS_Y20_DETAIL NP
-WHERE DATE_TRUNC(NP.RES_END_DATE, ISOWEEK) >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 WEEK)
-GROUP BY 1, 2, 3, 4, 5, 6
-
-ORDER BY 4, 3, 2, 1
-"""
-
-# ── QUERY 5: nível REP individual (USER_ID) ────────────────────────────────────
-# ATENÇÃO: verifique se o campo USER_ID existe na tabela DM_CX_NPS_Y20_DETAIL.
-# Se não existir, substitua por AGENT_ID, USER_PLATFORM_ID ou similar.
-QUERY_REP = BASE_CTE + """
-SELECT
-  CAST(NP.USER_ID AS STRING)                                     AS REP_ID,
-  NP.USER_TEAM_NAME,
-  NP.USER_TEAM_CHANNEL,
-  NP.USER_OFFICE,
-  NP.ANTIGUEDAD_REP                                              AS SENIORITY,
   FORMAT_DATE('%Y-%m-%d', DATE_TRUNC(NP.RES_END_DATE, ISOWEEK)) AS PERIODO,
   'SEMANA'                                                        AS TIPO,
   COUNT(*)                                                        AS ENCUESTAS,
@@ -207,8 +188,31 @@ SELECT
 FROM BASE_NPS_Y20_DETAIL NP
 WHERE DATE_TRUNC(NP.RES_END_DATE, ISOWEEK) >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 WEEK)
 GROUP BY 1, 2, 3, 4, 5, 6, 7
+
+ORDER BY 5, 4, 3, GAP_TGT
+"""
+
+# ── QUERY 5: nível REP individual (CX_USER_LDAP) ──────────────────────────────
+QUERY_REP = BASE_CTE + """
+SELECT
+  NP.CX_USER_LDAP                                               AS REP_LDAP,
+  NP.CX_USER_NAME                                               AS REP_NAME,
+  NP.USER_TEAM_NAME,
+  NP.USER_TEAM_CHANNEL,
+  NP.USER_OFFICE,
+  NP.ANTIGUEDAD_REP                                             AS SENIORITY,
+  FORMAT_DATE('%Y-%m-%d', DATE_TRUNC(NP.RES_END_DATE, ISOWEEK)) AS PERIODO,
+  'SEMANA'                                                        AS TIPO,
+  COUNT(*)                                                        AS ENCUESTAS,
+  ROUND(AVG(NP.GAP_TGT) * 100, 2)                               AS GAP_TGT,
+  ROUND((SUM(NP.PROMOTER) - SUM(NP.DETRACTOR)) * 100.0
+        / NULLIF(COUNT(*), 0), 2)                                AS NPS,
+  ROUND(AVG(NP.SURVEY_TARGET_VALUE) * 100, 2)                   AS TARGET
+FROM BASE_NPS_Y20_DETAIL NP
+WHERE DATE_TRUNC(NP.RES_END_DATE, ISOWEEK) >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 WEEK)
+GROUP BY 1, 2, 3, 4, 5, 6, 7, 8
 HAVING COUNT(*) >= 3
-ORDER BY 4, 3, 2, GAP_TGT
+ORDER BY 5, 4, 3, GAP_TGT
 """
 
 # ── EXECUÇÃO ──────────────────────────────────────────────────────────────────
@@ -286,7 +290,8 @@ def main():
     rows_team = run_query(client, "Query 4/5: TL level (USER_TEAM_ID)", QUERY_TEAM)
     team_data = [
         {
-            "team_id": r.TEAM_ID,
+            "tl_ldap": r.TL_LDAP,
+            "tl_name": r.TL_NAME,
             "team":    r.USER_TEAM_NAME,
             "ch":      r.USER_TEAM_CHANNEL,
             "office":  r.USER_OFFICE,
@@ -300,13 +305,14 @@ def main():
         for r in rows_team
     ]
 
-    # Query 5 — REP individual (com fallback se campo não existir)
+    # Query 5 — REP individual
     rep_data = []
     try:
-        rows_rep = run_query(client, "Query 5/5: REP individual (USER_ID)", QUERY_REP)
+        rows_rep = run_query(client, "Query 5/5: REP individual (CX_USER_LDAP)", QUERY_REP)
         rep_data = [
             {
-                "rep_id":   r.REP_ID,
+                "rep_ldap": r.REP_LDAP,
+                "rep_name": r.REP_NAME,
                 "team":     r.USER_TEAM_NAME,
                 "ch":       r.USER_TEAM_CHANNEL,
                 "office":   r.USER_OFFICE,
@@ -321,8 +327,7 @@ def main():
             for r in rows_rep
         ]
     except Exception as e:
-        print(f"[{datetime.now():%H:%M:%S}]   ⚠ Query REP falhou: {e}")
-        print(f"[{datetime.now():%H:%M:%S}]   Verifique o nome do campo de identificação do rep (USER_ID).")
+        print(f"[{datetime.now():%H:%M:%S}]   AVISO: Query REP falhou: {e}")
         rep_data = []
 
     # Gerar data.js
