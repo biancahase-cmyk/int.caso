@@ -750,7 +750,7 @@ function buildSimulation() {
   const totalNpsW=simRows.reduce((s,r)=>s+(r.nps||0)*(r.enc||0),0);
   const npsAtual=totalNpsW/totalEnc;
 
-  const negSegs=allSegsForSim.filter(s=>s.gap<0).sort((a,b)=>a.gap-b.gap).slice(0,8);
+  const negSegs=allSegsForSim.filter(s=>s.gap<0).sort((a,b)=>a.contribution-b.contribution).slice(0,8);
 
   if(!negSegs.length){
     document.getElementById('sim-table-wrap').innerHTML=
