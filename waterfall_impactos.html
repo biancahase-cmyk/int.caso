@@ -767,30 +767,38 @@ function buildSimulation() {
       const npsSem=encSem>0?(totalNpsW-sg.nps*sg.enc)/encSem:npsAtual;
       const delta=npsSem-npsAtual;
       const isPos=delta>=0;
-      return `<tr style="border-bottom:1px solid #F5F5F5">
+      const volPct=(sg.enc/totalEnc)*100;
+      // Aviso: NPS do segmento perto da média → impacto pequeno é esperado
+      const npsProxMedia=Math.abs(sg.nps-npsAtual)<5;
+      const tooltip=npsProxMedia
+        ?`NPS do segmento (${sg.nps.toFixed(1)}) está próximo da média (${npsAtual.toFixed(1)}) — remoção tem impacto mínimo`
+        :`NPS do segmento: ${sg.nps.toFixed(1)} · Média geral: ${npsAtual.toFixed(1)}`;
+      return `<tr style="border-bottom:1px solid #F5F5F5${npsProxMedia?' opacity:0.7':''}">
         <td style="width:24px;font-size:11px;font-weight:700;color:#bbb;padding:6px 4px">${i+1}</td>
         <td style="font-size:11px;padding:6px 8px;max-width:220px">
           <div style="font-weight:600;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${sg.key}">${sg.key}</div>
-          <div style="font-size:10px;color:#999;margin-top:1px">${fmtEnc(sg.enc)} enc · GAP atual: ${fmtGap(sg.gap)} pp</div>
+          <div style="font-size:10px;color:#999;margin-top:1px">${fmtEnc(sg.enc)} enc · NPS segmento: <strong>${sg.nps.toFixed(1)}</strong> · GAP vs meta: ${fmtGap(sg.gap)} pp${npsProxMedia?' ⚠️':''}</div>
         </td>
-        <td style="width:80px;text-align:right;font-size:11px;padding:6px">
-          <div style="font-size:10px;color:#888">${fmtNPS(npsAtual)} → <strong style="font-size:12px;color:${isPos?'#00875A':'#F23D4F'}">${fmtNPS(npsSem)}</strong></div>
+        <td style="width:90px;text-align:right;font-size:11px;padding:6px" title="${tooltip}">
+          <div style="font-size:10px;color:#888">${npsAtual.toFixed(2)} → <strong style="font-size:12px;color:${isPos?'#00875A':'#F23D4F'}">${npsSem.toFixed(2)}</strong></div>
         </td>
         <td style="width:80px;text-align:right;padding:6px">
-          <span style="font-size:13px;font-weight:800;color:${isPos?'#00875A':'#888'}">${isPos?'+':''}${delta.toFixed(1)} pp</span>
+          <span style="font-size:13px;font-weight:800;color:${isPos?'#00875A':'#888'}">${isPos?'+':''}${delta.toFixed(2)} pp</span>
         </td>
-        <td style="width:65px;text-align:right;font-size:10px;color:#aaa;padding:6px">${((sg.enc/totalEnc)*100).toFixed(1)}% vol</td>
+        <td style="width:65px;text-align:right;font-size:10px;color:#aaa;padding:6px">${volPct.toFixed(1)}% vol</td>
       </tr>`;
     }).join('');
     summaryHtml=`<div style="margin-top:10px;padding:8px 12px;background:#EBF3FF;border-radius:6px;font-size:11px;color:#1D4ED8;font-weight:600">
-      ✂️ NPS atual: <strong>${fmtNPS(npsAtual)}</strong> — cada linha mostra o NPS se aquele segmento fosse removido da base.</div>`;
+      ✂️ NPS atual: <strong>${npsAtual.toFixed(2)}</strong> (base: ${fmtEnc(totalEnc)} enc) — cada linha mostra o NPS se aquele segmento fosse removido da base.</div>
+      <div style="margin-top:6px;padding:6px 12px;background:#FFFBEB;border-radius:6px;font-size:10px;color:#92400E">
+      ⚠️ Segmentos com NPS próximo da média geral (marcados com ⚠️) terão impacto mínimo mesmo com GAP grande vs meta. Para ver o ganho potencial de <em>corrigir</em> esses processos, use o modo <strong>Se resolvermos ↑</strong>.</div>`;
     document.getElementById('sim-table-wrap').innerHTML=`
       <div style="margin-bottom:10px;font-size:11px;color:#888">Simulação por <strong>${dimLabel}</strong> — NPS calculado sem o segmento na base.</div>
       <table style="width:100%;border-collapse:collapse">
         <thead><tr style="border-bottom:2px solid #F0F0F0">
           <th style="width:24px;font-size:9px;font-weight:700;color:#aaa;padding:4px;text-transform:uppercase">#</th>
           <th style="font-size:9px;font-weight:700;color:#aaa;padding:4px;text-align:left;text-transform:uppercase">${dimLabel}</th>
-          <th style="width:80px;font-size:9px;font-weight:700;color:#aaa;padding:4px;text-align:right;text-transform:uppercase">NPS sem ele</th>
+          <th style="width:90px;font-size:9px;font-weight:700;color:#aaa;padding:4px;text-align:right;text-transform:uppercase">NPS sem ele</th>
           <th style="width:80px;font-size:9px;font-weight:700;color:#aaa;padding:4px;text-align:right;text-transform:uppercase">Δ NPS</th>
           <th style="width:65px;font-size:9px;font-weight:700;color:#aaa;padding:4px;text-align:right;text-transform:uppercase">% Vol</th>
         </tr></thead>
