@@ -28,6 +28,8 @@ WITH BASE_NPS_Y20_DETAIL AS (
     IF(NP.USER_TEAM_ID = 2352, 'C2C', NP.USER_TEAM_CHANNEL) AS USER_TEAM_CHANNEL,
     NP.USER_OFFICE,
     NP.PRO_PROCESS_NAME,
+    NP.CDU,
+    NP.CX_SOL_NAME,
     NP.ANTIGUEDAD_REP,
     NP.CX_USER_LDAP,
     NP.CX_USER_NAME,
@@ -38,7 +40,8 @@ WITH BASE_NPS_Y20_DETAIL AS (
     NP.SURVEY_TARGET_VALUE,
     NP.NPS - NP.SURVEY_TARGET_VALUE                          AS GAP_TGT,
     NP.PROMOTER,
-    NP.DETRACTOR
+    NP.DETRACTOR,
+    NP.COMMENTS
   FROM `meli-bi-data.WHOWNER.DM_CX_NPS_Y20_DETAIL` NP
   INNER JOIN `meli-bi-data.WHOWNER.LK_CX_PLANNING_GROUP` PG
          ON  PG.CX_TEAM_ID = NP.USER_TEAM_ID
@@ -99,7 +102,9 @@ QUERY_PROCESS = BASE_CTE + """
 SELECT
   NP.USER_TEAM_NAME,
   NP.USER_TEAM_CHANNEL,
+  NP.USER_OFFICE,
   NP.PRO_PROCESS_NAME,
+  NP.CDU,
   FORMAT_DATE('%Y-%m-%d', DATE_TRUNC(NP.RES_END_DATE, MONTH))   AS PERIODO,
   'MES'                                                           AS TIPO,
   COUNT(*)                                                        AS ENCUESTAS,
@@ -109,14 +114,16 @@ SELECT
   ROUND(AVG(NP.SURVEY_TARGET_VALUE) * 100, 2)                   AS TARGET,
   SUM(NP.DETRACTOR)                                              AS DETRATORES
 FROM BASE_NPS_Y20_DETAIL NP
-GROUP BY 1, 2, 3, 4, 5
+GROUP BY 1, 2, 3, 4, 5, 6, 7
 
 UNION ALL
 
 SELECT
   NP.USER_TEAM_NAME,
   NP.USER_TEAM_CHANNEL,
+  NP.USER_OFFICE,
   NP.PRO_PROCESS_NAME,
+  NP.CDU,
   FORMAT_DATE('%Y-%m-%d', DATE_TRUNC(NP.RES_END_DATE, ISOWEEK)) AS PERIODO,
   'SEMANA'                                                        AS TIPO,
   COUNT(*)                                                        AS ENCUESTAS,
@@ -127,9 +134,9 @@ SELECT
   SUM(NP.DETRACTOR)                                              AS DETRATORES
 FROM BASE_NPS_Y20_DETAIL NP
 WHERE DATE_TRUNC(NP.RES_END_DATE, ISOWEEK) >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 WEEK)
-GROUP BY 1, 2, 3, 4, 5
+GROUP BY 1, 2, 3, 4, 5, 6, 7
 
-ORDER BY 1, 2, 3, 4
+ORDER BY 1, 2, 3, 4, 5
 """
 
 # ── QUERY 3: abertura por senioridade (EXPERT vs NEWBIE) ──────────────────────
@@ -170,7 +177,7 @@ GROUP BY 1, 2, 3, 4, 5, 6
 ORDER BY 1, 2, 3, 4, 5
 """
 
-# ── QUERY 4: nível TL (agrupado por CX_USER_TEAM_LEADER_LDAP) ─────────────────
+# ── QUERY 4: nível TL (agrupado por CX_USER_TEAM_LEADER_LDAP + processo) ──────
 QUERY_TEAM = BASE_CTE + """
 SELECT
   NP.CX_USER_TEAM_LEADER_LDAP                                   AS TL_LDAP,
@@ -178,29 +185,7 @@ SELECT
   NP.USER_TEAM_NAME,
   NP.USER_TEAM_CHANNEL,
   NP.USER_OFFICE,
-  FORMAT_DATE('%Y-%m-%d', DATE_TRUNC(NP.RES_END_DATE, ISOWEEK)) AS PERIODO,
-  'SEMANA'                                                        AS TIPO,
-  COUNT(*)                                                        AS ENCUESTAS,
-  ROUND(AVG(NP.GAP_TGT) * 100, 2)                               AS GAP_TGT,
-  ROUND((SUM(NP.PROMOTER) - SUM(NP.DETRACTOR)) * 100.0
-        / NULLIF(COUNT(*), 0), 2)                                AS NPS,
-  ROUND(AVG(NP.SURVEY_TARGET_VALUE) * 100, 2)                   AS TARGET
-FROM BASE_NPS_Y20_DETAIL NP
-WHERE DATE_TRUNC(NP.RES_END_DATE, ISOWEEK) >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 WEEK)
-GROUP BY 1, 2, 3, 4, 5, 6, 7
-
-ORDER BY 5, 4, 3, GAP_TGT
-"""
-
-# ── QUERY 5: nível REP individual (CX_USER_LDAP) ──────────────────────────────
-QUERY_REP = BASE_CTE + """
-SELECT
-  NP.CX_USER_LDAP                                               AS REP_LDAP,
-  NP.CX_USER_NAME                                               AS REP_NAME,
-  NP.USER_TEAM_NAME,
-  NP.USER_TEAM_CHANNEL,
-  NP.USER_OFFICE,
-  NP.ANTIGUEDAD_REP                                             AS SENIORITY,
+  NP.PRO_PROCESS_NAME,
   FORMAT_DATE('%Y-%m-%d', DATE_TRUNC(NP.RES_END_DATE, ISOWEEK)) AS PERIODO,
   'SEMANA'                                                        AS TIPO,
   COUNT(*)                                                        AS ENCUESTAS,
@@ -211,6 +196,177 @@ SELECT
 FROM BASE_NPS_Y20_DETAIL NP
 WHERE DATE_TRUNC(NP.RES_END_DATE, ISOWEEK) >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 WEEK)
 GROUP BY 1, 2, 3, 4, 5, 6, 7, 8
+
+ORDER BY 5, 4, 3, GAP_TGT
+"""
+
+# ── QUERY 5: nível REP individual (CX_USER_LDAP + processo) ───────────────────
+
+# ── QUERY 6: agrupamento por CDU ──────────────────────────────────────────────
+QUERY_CDU = BASE_CTE + """
+SELECT
+  NP.USER_TEAM_NAME,
+  NP.USER_TEAM_CHANNEL,
+  NP.USER_OFFICE,
+  NP.CDU                                                        AS CDU,
+  FORMAT_DATE('%Y-%m-%d', DATE_TRUNC(NP.RES_END_DATE, MONTH))  AS PERIODO,
+  'MES'                                                          AS TIPO,
+  COUNT(*)                                                       AS ENCUESTAS,
+  ROUND(AVG(NP.GAP_TGT) * 100, 2)                              AS GAP_TGT,
+  ROUND((SUM(NP.PROMOTER) - SUM(NP.DETRACTOR)) * 100.0
+        / NULLIF(COUNT(*), 0), 2)                               AS NPS,
+  ROUND(AVG(NP.SURVEY_TARGET_VALUE) * 100, 2)                  AS TARGET,
+  SUM(NP.DETRACTOR)                                             AS DETRATORES
+FROM BASE_NPS_Y20_DETAIL NP
+GROUP BY 1, 2, 3, 4, 5, 6
+
+UNION ALL
+
+SELECT
+  NP.USER_TEAM_NAME,
+  NP.USER_TEAM_CHANNEL,
+  NP.USER_OFFICE,
+  NP.CDU,
+  FORMAT_DATE('%Y-%m-%d', DATE_TRUNC(NP.RES_END_DATE, ISOWEEK)) AS PERIODO,
+  'SEMANA'                                                        AS TIPO,
+  COUNT(*)                                                        AS ENCUESTAS,
+  ROUND(AVG(NP.GAP_TGT) * 100, 2)                               AS GAP_TGT,
+  ROUND((SUM(NP.PROMOTER) - SUM(NP.DETRACTOR)) * 100.0
+        / NULLIF(COUNT(*), 0), 2)                                AS NPS,
+  ROUND(AVG(NP.SURVEY_TARGET_VALUE) * 100, 2)                   AS TARGET,
+  SUM(NP.DETRACTOR)                                              AS DETRATORES
+FROM BASE_NPS_Y20_DETAIL NP
+WHERE DATE_TRUNC(NP.RES_END_DATE, ISOWEEK) >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 WEEK)
+GROUP BY 1, 2, 3, 4, 5, 6
+
+ORDER BY 1, 2, 3, 4, 5
+"""
+
+# ── QUERY 6b: cruzamento PROCESSO × CDU (para drill-down no relatório) ────────
+QUERY_PROC_CDU = BASE_CTE + """
+SELECT
+  NP.USER_TEAM_NAME,
+  NP.USER_TEAM_CHANNEL,
+  NP.PRO_PROCESS_NAME                                           AS PROCESSO,
+  NP.CDU                                                        AS CDU,
+  FORMAT_DATE('%Y-%m-%d', DATE_TRUNC(NP.RES_END_DATE, MONTH))  AS PERIODO,
+  'MES'                                                          AS TIPO,
+  COUNT(*)                                                       AS ENCUESTAS,
+  ROUND(AVG(NP.GAP_TGT) * 100, 2)                              AS GAP_TGT,
+  ROUND((SUM(NP.PROMOTER) - SUM(NP.DETRACTOR)) * 100.0
+        / NULLIF(COUNT(*), 0), 2)                               AS NPS,
+  ROUND(AVG(NP.SURVEY_TARGET_VALUE) * 100, 2)                  AS TARGET,
+  SUM(NP.DETRACTOR)                                             AS DETRATORES
+FROM BASE_NPS_Y20_DETAIL NP
+GROUP BY 1, 2, 3, 4, 5, 6
+
+UNION ALL
+
+SELECT
+  NP.USER_TEAM_NAME,
+  NP.USER_TEAM_CHANNEL,
+  NP.PRO_PROCESS_NAME,
+  NP.CDU,
+  FORMAT_DATE('%Y-%m-%d', DATE_TRUNC(NP.RES_END_DATE, ISOWEEK)) AS PERIODO,
+  'SEMANA'                                                        AS TIPO,
+  COUNT(*)                                                        AS ENCUESTAS,
+  ROUND(AVG(NP.GAP_TGT) * 100, 2)                               AS GAP_TGT,
+  ROUND((SUM(NP.PROMOTER) - SUM(NP.DETRACTOR)) * 100.0
+        / NULLIF(COUNT(*), 0), 2)                                AS NPS,
+  ROUND(AVG(NP.SURVEY_TARGET_VALUE) * 100, 2)                   AS TARGET,
+  SUM(NP.DETRACTOR)                                              AS DETRATORES
+FROM BASE_NPS_Y20_DETAIL NP
+WHERE DATE_TRUNC(NP.RES_END_DATE, ISOWEEK) >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 WEEK)
+GROUP BY 1, 2, 3, 4, 5, 6
+
+ORDER BY 1, 2, 3, 4, 5
+"""
+
+# ── QUERY 7: agrupamento por CX_SOL_NAME ─────────────────────────────────────
+QUERY_SOLUCAO = BASE_CTE + """
+SELECT
+  NP.USER_TEAM_NAME,
+  NP.USER_TEAM_CHANNEL,
+  NP.CX_SOL_NAME                                               AS SOLUCAO,
+  FORMAT_DATE('%Y-%m-%d', DATE_TRUNC(NP.RES_END_DATE, MONTH))  AS PERIODO,
+  'MES'                                                          AS TIPO,
+  COUNT(*)                                                       AS ENCUESTAS,
+  ROUND(AVG(NP.GAP_TGT) * 100, 2)                              AS GAP_TGT,
+  ROUND((SUM(NP.PROMOTER) - SUM(NP.DETRACTOR)) * 100.0
+        / NULLIF(COUNT(*), 0), 2)                               AS NPS,
+  ROUND(AVG(NP.SURVEY_TARGET_VALUE) * 100, 2)                  AS TARGET,
+  SUM(NP.DETRACTOR)                                             AS DETRATORES
+FROM BASE_NPS_Y20_DETAIL NP
+GROUP BY 1, 2, 3, 4, 5
+
+UNION ALL
+
+SELECT
+  NP.USER_TEAM_NAME,
+  NP.USER_TEAM_CHANNEL,
+  NP.CX_SOL_NAME,
+  FORMAT_DATE('%Y-%m-%d', DATE_TRUNC(NP.RES_END_DATE, ISOWEEK)) AS PERIODO,
+  'SEMANA'                                                        AS TIPO,
+  COUNT(*)                                                        AS ENCUESTAS,
+  ROUND(AVG(NP.GAP_TGT) * 100, 2)                               AS GAP_TGT,
+  ROUND((SUM(NP.PROMOTER) - SUM(NP.DETRACTOR)) * 100.0
+        / NULLIF(COUNT(*), 0), 2)                                AS NPS,
+  ROUND(AVG(NP.SURVEY_TARGET_VALUE) * 100, 2)                   AS TARGET,
+  SUM(NP.DETRACTOR)                                              AS DETRATORES
+FROM BASE_NPS_Y20_DETAIL NP
+WHERE DATE_TRUNC(NP.RES_END_DATE, ISOWEEK) >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 WEEK)
+GROUP BY 1, 2, 3, 4, 5
+
+ORDER BY 1, 2, 3, 4
+"""
+
+# ── QUERY 8: comentários NPS Lineal (verbatins dos últimos 14 dias) ────────────
+# ⚠️ ATENÇÃO: verifique o nome correto da coluna de verbatim no seu ambiente BQ.
+#    Candidatos comuns: VERBATIM, NPS_VERBATIM, PRO_VERBATIM, VERBATIM_TEXT
+#    Substitua 'NP.VERBATIM' abaixo pelo nome real da coluna antes de executar.
+QUERY_COMMENTS = BASE_CTE + """
+SELECT
+  NP.USER_TEAM_NAME                                              AS TEAM,
+  NP.USER_TEAM_CHANNEL                                          AS CH,
+  NP.USER_OFFICE                                                AS OFFICE,
+  NP.PRO_PROCESS_NAME                                           AS PROCESSO,
+  NP.CDU                                                        AS CDU,
+  NP.CX_SOL_NAME                                               AS SOLUCAO,
+  NP.ANTIGUEDAD_REP                                             AS SENIORITY,
+  FORMAT_DATE('%Y-%m-%d', NP.RES_END_DATE)                     AS DATA,
+  CASE
+    WHEN NP.NPS < 0.7  THEN 'DETRATOR'
+    WHEN NP.NPS >= 0.9 THEN 'PROMOTOR'
+    ELSE 'NEUTRO'
+  END                                                            AS TIPO,
+  NP.COMMENTS                                                   AS COMENTARIO
+FROM BASE_NPS_Y20_DETAIL NP
+WHERE NP.RES_END_DATE >= DATE_SUB(CURRENT_DATE(), INTERVAL 14 DAY)
+  AND NP.COMMENTS IS NOT NULL
+  AND NP.COMMENTS != ''
+ORDER BY NP.RES_END_DATE DESC
+LIMIT 500
+"""
+
+QUERY_REP = BASE_CTE + """
+SELECT
+  NP.CX_USER_LDAP                                               AS REP_LDAP,
+  NP.CX_USER_NAME                                               AS REP_NAME,
+  NP.USER_TEAM_NAME,
+  NP.USER_TEAM_CHANNEL,
+  NP.USER_OFFICE,
+  NP.ANTIGUEDAD_REP                                             AS SENIORITY,
+  NP.PRO_PROCESS_NAME,
+  FORMAT_DATE('%Y-%m-%d', DATE_TRUNC(NP.RES_END_DATE, ISOWEEK)) AS PERIODO,
+  'SEMANA'                                                        AS TIPO,
+  COUNT(*)                                                        AS ENCUESTAS,
+  ROUND(AVG(NP.GAP_TGT) * 100, 2)                               AS GAP_TGT,
+  ROUND((SUM(NP.PROMOTER) - SUM(NP.DETRACTOR)) * 100.0
+        / NULLIF(COUNT(*), 0), 2)                                AS NPS,
+  ROUND(AVG(NP.SURVEY_TARGET_VALUE) * 100, 2)                   AS TARGET
+FROM BASE_NPS_Y20_DETAIL NP
+WHERE DATE_TRUNC(NP.RES_END_DATE, ISOWEEK) >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 WEEK)
+GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9
 HAVING COUNT(*) >= 3
 ORDER BY 5, 4, 3, GAP_TGT
 """
@@ -256,7 +412,9 @@ def main():
         {
             "team":     r.USER_TEAM_NAME,
             "ch":       r.USER_TEAM_CHANNEL,
+            "office":   r.USER_OFFICE,
             "processo": r.PRO_PROCESS_NAME,
+            "cdu":      r.CDU if r.CDU is not None else "",
             "period":   str(r.PERIODO),
             "tipo":     r.TIPO,
             "enc":      int(r.ENCUESTAS),
@@ -290,12 +448,13 @@ def main():
     rows_team = run_query(client, "Query 4/5: TL level (USER_TEAM_ID)", QUERY_TEAM)
     team_data = [
         {
-            "tl_ldap": r.TL_LDAP,
-            "tl_name": r.TL_NAME,
-            "team":    r.USER_TEAM_NAME,
-            "ch":      r.USER_TEAM_CHANNEL,
-            "office":  r.USER_OFFICE,
-            "period":  str(r.PERIODO),
+            "tl_ldap":  r.TL_LDAP,
+            "tl_name":  r.TL_NAME,
+            "team":     r.USER_TEAM_NAME,
+            "ch":       r.USER_TEAM_CHANNEL,
+            "office":   r.USER_OFFICE,
+            "processo": r.PRO_PROCESS_NAME,
+            "period":   str(r.PERIODO),
             "tipo":    r.TIPO,
             "enc":     int(r.ENCUESTAS),
             "gap_tgt": float(r.GAP_TGT) if r.GAP_TGT is not None else None,
@@ -308,16 +467,17 @@ def main():
     # Query 5 — REP individual
     rep_data = []
     try:
-        rows_rep = run_query(client, "Query 5/5: REP individual (CX_USER_LDAP)", QUERY_REP)
+        rows_rep = run_query(client, "Query 5/6: REP individual (CX_USER_LDAP)", QUERY_REP)
         rep_data = [
             {
-                "rep_ldap": r.REP_LDAP,
-                "rep_name": r.REP_NAME,
-                "team":     r.USER_TEAM_NAME,
-                "ch":       r.USER_TEAM_CHANNEL,
-                "office":   r.USER_OFFICE,
-                "seniority":r.SENIORITY,
-                "period":   str(r.PERIODO),
+                "rep_ldap":  r.REP_LDAP,
+                "rep_name":  r.REP_NAME,
+                "team":      r.USER_TEAM_NAME,
+                "ch":        r.USER_TEAM_CHANNEL,
+                "office":    r.USER_OFFICE,
+                "seniority": r.SENIORITY,
+                "processo":  r.PRO_PROCESS_NAME,
+                "period":    str(r.PERIODO),
                 "tipo":     r.TIPO,
                 "enc":      int(r.ENCUESTAS),
                 "gap_tgt":  float(r.GAP_TGT) if r.GAP_TGT is not None else None,
@@ -330,6 +490,104 @@ def main():
         print(f"[{datetime.now():%H:%M:%S}]   AVISO: Query REP falhou: {e}")
         rep_data = []
 
+    # Query 6 — por CDU (campo direto PRO_CDU_NAME — ajuste o nome se necessário)
+    cdu_data = []
+    try:
+        rows_cdu = run_query(client, "Query 6/8: por CDU", QUERY_CDU)
+        cdu_data = [
+            {
+                "team":    r.USER_TEAM_NAME,
+                "ch":      r.USER_TEAM_CHANNEL,
+                "office":  r.USER_OFFICE,
+                "cdu":     r.CDU,
+                "period":  str(r.PERIODO),
+                "tipo":    r.TIPO,
+                "enc":     int(r.ENCUESTAS),
+                "gap_tgt": float(r.GAP_TGT)    if r.GAP_TGT    is not None else None,
+                "nps":     float(r.NPS)         if r.NPS        is not None else None,
+                "target":  float(r.TARGET)      if r.TARGET     is not None else None,
+                "det":     int(r.DETRATORES)    if r.DETRATORES is not None else 0,
+            }
+            for r in rows_cdu
+        ]
+    except Exception as e:
+        print(f"[{datetime.now():%H:%M:%S}]   AVISO: Query CDU falhou: {e}")
+        print(f"                            Verifique o campo CDU em QUERY_CDU.")
+        cdu_data = []
+
+    # Query 6b — cruzamento PROCESSO × CDU
+    proc_cdu_data = []
+    try:
+        rows_proc_cdu = run_query(client, "Query 6b: PROCESSO × CDU", QUERY_PROC_CDU)
+        proc_cdu_data = [
+            {
+                "team":     r.USER_TEAM_NAME,
+                "ch":       r.USER_TEAM_CHANNEL,
+                "processo": r.PROCESSO,
+                "cdu":      r.CDU,
+                "period":   str(r.PERIODO),
+                "tipo":     r.TIPO,
+                "enc":      int(r.ENCUESTAS),
+                "gap_tgt":  float(r.GAP_TGT)    if r.GAP_TGT    is not None else None,
+                "nps":      float(r.NPS)         if r.NPS        is not None else None,
+                "target":   float(r.TARGET)      if r.TARGET     is not None else None,
+                "det":      int(r.DETRATORES)    if r.DETRATORES is not None else 0,
+            }
+            for r in rows_proc_cdu
+        ]
+    except Exception as e:
+        print(f"[{datetime.now():%H:%M:%S}]   AVISO: Query PROCESSO×CDU falhou: {e}")
+        proc_cdu_data = []
+
+    # Query 7 — por SOLUTION_NAME
+    solucao_data = []
+    try:
+        rows_sol = run_query(client, "Query 7/8: por CX_SOL_NAME", QUERY_SOLUCAO)
+        solucao_data = [
+            {
+                "team":    r.USER_TEAM_NAME,
+                "ch":      r.USER_TEAM_CHANNEL,
+                "solucao": r.SOLUCAO,
+                "period":  str(r.PERIODO),
+                "tipo":    r.TIPO,
+                "enc":     int(r.ENCUESTAS),
+                "gap_tgt": float(r.GAP_TGT)    if r.GAP_TGT    is not None else None,
+                "nps":     float(r.NPS)         if r.NPS        is not None else None,
+                "target":  float(r.TARGET)      if r.TARGET     is not None else None,
+                "det":     int(r.DETRATORES)    if r.DETRATORES is not None else 0,
+            }
+            for r in rows_sol
+        ]
+    except Exception as e:
+        print(f"[{datetime.now():%H:%M:%S}]   AVISO: Query Solução falhou: {e}")
+        solucao_data = []
+
+    # Query 8 — comentários NPS Lineal
+    # ⚠️ Se falhar, ajuste o nome da coluna VERBATIM em QUERY_COMMENTS
+    comments_data = []
+    try:
+        rows_comments = run_query(client, "Query 6/6: comentários NPS Lineal", QUERY_COMMENTS)
+        comments_data = [
+            {
+                "team":      r.TEAM,
+                "ch":        r.CH,
+                "office":    r.OFFICE,
+                "processo":  r.PROCESSO,
+                "cdu":       r.CDU       if r.CDU       is not None else "",
+                "solucao":   r.SOLUCAO   if r.SOLUCAO   is not None else "",
+                "seniority": r.SENIORITY,
+                "data":      str(r.DATA),
+                "tipo":      r.TIPO,
+                "comentario": r.COMENTARIO,
+            }
+            for r in rows_comments
+            if r.COMENTARIO
+        ]
+    except Exception as e:
+        print(f"[{datetime.now():%H:%M:%S}]   AVISO: Query Comentários falhou: {e}")
+        print(f"                            Verifique o nome da coluna VERBATIM em QUERY_COMMENTS.")
+        comments_data = []
+
     # Gerar data.js
     js_content = (
         f"// Gerado automaticamente por refresh_nps_data.py\n"
@@ -338,7 +596,11 @@ def main():
         f"window.NPS_PROCESS_DATA = {json.dumps(process_data,  ensure_ascii=False, indent=2)};\n\n"
         f"window.NPS_SENIORITY_DATA = {json.dumps(seniority_data, ensure_ascii=False, indent=2)};\n\n"
         f"window.NPS_TEAM_DATA = {json.dumps(team_data,      ensure_ascii=False, indent=2)};\n\n"
-        f"window.NPS_REP_DATA = {json.dumps(rep_data,       ensure_ascii=False, indent=2)};\n"
+        f"window.NPS_REP_DATA = {json.dumps(rep_data,         ensure_ascii=False, indent=2)};\n\n"
+        f"window.NPS_CDU_DATA = {json.dumps(cdu_data,         ensure_ascii=False, indent=2)};\n\n"
+        f"window.NPS_PROC_CDU_DATA = {json.dumps(proc_cdu_data, ensure_ascii=False, indent=2)};\n\n"
+        f"window.NPS_SOLUCAO_DATA = {json.dumps(solucao_data, ensure_ascii=False, indent=2)};\n\n"
+        f"window.NPS_COMMENTS_DATA = {json.dumps(comments_data, ensure_ascii=False, indent=2)};\n"
     )
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:

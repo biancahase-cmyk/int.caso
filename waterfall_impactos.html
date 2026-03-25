@@ -339,8 +339,13 @@ tr:hover td{background:#FAFAFA}
     <div class="sim-panel">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
         <div class="sim-title" style="margin-bottom:0">🎯 Simulação de Ganho — Se resolvermos os top problemas</div>
-        <div style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.3px">Simular por</span>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.3px">Modo</span>
+          <select class="sfsel" id="sim-mode" onchange="buildSimulation()">
+            <option value="fix">Se resolvermos ↑</option>
+            <option value="remove">E se removêssemos? ✂️</option>
+          </select>
+          <span style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.3px">Dimensão</span>
           <select class="sfsel" id="sim-dim" onchange="buildSimulation()">
             <option value="processo">Processo</option>
             <option value="office">Office</option>
@@ -361,6 +366,7 @@ tr:hover td{background:#FAFAFA}
     <button class="tab-btn" onclick="switchTab('cdu')" id="tab-btn-cdu">🎯 Por CDU <span class="tab-badge" id="tbadge-cdu">—</span></button>
     <button class="tab-btn" onclick="switchTab('solucao')" id="tab-btn-solucao">💡 Por Solução <span class="tab-badge" id="tbadge-solucao">—</span></button>
     <button class="tab-btn" onclick="switchTab('senioridade')" id="tab-btn-senioridade">👤 Por Senioridade <span class="tab-badge" id="tbadge-senioridade">—</span></button>
+    <button class="tab-btn" onclick="switchTab('rep')" id="tab-btn-rep">🚨 REP Ofensor <span class="tab-badge" id="tbadge-rep">—</span></button>
     <button class="tab-btn" onclick="switchTab('comentarios')" id="tab-btn-comentarios">💬 Comentários NPS <span class="tab-badge" id="tbadge-comentarios">—</span></button>
   </div>
 
@@ -370,6 +376,7 @@ tr:hover td{background:#FAFAFA}
   <div class="tab-content" id="tab-cdu"></div>
   <div class="tab-content" id="tab-solucao"></div>
   <div class="tab-content" id="tab-senioridade"></div>
+  <div class="tab-content" id="tab-rep"></div>
   <div class="tab-content" id="tab-comentarios"></div>
 
 </div>
@@ -723,6 +730,7 @@ function buildSimulation() {
     canal :DRILL.canal||'ALL',
     office:DRILL.office||'ALL',
   };
+  const mode=document.getElementById('sim-mode')?.value||'fix';
   const dim=document.getElementById('sim-dim')?.value||'processo';
   let simRows, dimKey, dimLabel;
   if(dim==='office'){
@@ -737,11 +745,12 @@ function buildSimulation() {
     simRows=filterRows(window.NPS_PROCESS_DATA||[],ov); dimKey='processo'; dimLabel='Processo';
   }
 
+  const allSegsForSim=aggregateBy(simRows,dimKey).filter(s=>s.enc>=10);
   const totalEnc=simRows.reduce((s,r)=>s+(r.enc||0),0)||1;
-  const negSegs=aggregateBy(simRows,dimKey)
-    .filter(s=>s.gap<0&&s.enc>=10)
-    .sort((a,b)=>b.opp-a.opp)
-    .slice(0,8);
+  const totalNpsW=simRows.reduce((s,r)=>s+(r.nps||0)*(r.enc||0),0);
+  const npsAtual=totalNpsW/totalEnc;
+
+  const negSegs=allSegsForSim.filter(s=>s.gap<0).sort((a,b)=>a.gap-b.gap).slice(0,8);
 
   if(!negSegs.length){
     document.getElementById('sim-table-wrap').innerHTML=
@@ -749,51 +758,87 @@ function buildSimulation() {
     return;
   }
 
-  let cumGain=0;
-  const gains=negSegs.map(sg=>sg.enc*Math.abs(sg.gap)/totalEnc);
-  const maxGain=gains.reduce((s,g)=>s+g,0);
+  let rowsHtml='', summaryHtml='';
 
-  const rowsHtml=negSegs.map((sg,i)=>{
-    const gain=gains[i]; cumGain+=gain;
-    const barPct=Math.round((gain/Math.max(maxGain,0.001))*100);
-    return `<tr style="border-bottom:1px solid #F5F5F5">
-      <td style="width:24px;font-size:11px;font-weight:700;color:#bbb;padding:6px 4px">${i+1}</td>
-      <td style="font-size:11px;padding:6px 8px;max-width:220px">
-        <div style="font-weight:600;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${sg.key}">${sg.key}</div>
-        <div style="font-size:10px;color:#999;margin-top:1px">${fmtEnc(sg.enc)} enc</div>
-      </td>
-      <td style="width:70px;text-align:right;font-size:11px;font-weight:700;color:#F23D4F;padding:6px 6px">${fmtGap(sg.gap)} pp</td>
-      <td style="width:80px;text-align:right;padding:6px 6px">
-        <span style="font-size:12px;font-weight:800;color:#00875A">+${gain.toFixed(1)} pp</span>
-      </td>
-      <td style="width:120px;padding:6px 8px">
-        <div style="font-size:9px;color:#999;margin-bottom:3px">+${cumGain.toFixed(1)} pp acum.</div>
-        <div style="background:#F0F0F0;border-radius:3px;height:5px;overflow:hidden">
-          <div style="background:linear-gradient(90deg,#00A650,#00C060);height:100%;width:${barPct}%;border-radius:3px;transition:width .3s"></div>
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
-
-  document.getElementById('sim-table-wrap').innerHTML=`
-    <div style="margin-bottom:10px;font-size:11px;color:#888">
-      Base: <strong>${fmtEnc(totalEnc)} enc</strong> por <strong>${dimLabel}</strong>.
-      Ganho = proporção de enc × |GAP| recuperados ao atingir meta.
-    </div>
-    <table style="width:100%;border-collapse:collapse">
-      <thead><tr style="border-bottom:2px solid #F0F0F0">
-        <th style="width:24px;font-size:9px;font-weight:700;color:#aaa;padding:4px;text-transform:uppercase">#</th>
-        <th style="font-size:9px;font-weight:700;color:#aaa;padding:4px;text-align:left;text-transform:uppercase">${dimLabel}</th>
-        <th style="width:70px;font-size:9px;font-weight:700;color:#aaa;padding:4px;text-align:right;text-transform:uppercase">GAP</th>
-        <th style="width:80px;font-size:9px;font-weight:700;color:#aaa;padding:4px;text-align:right;text-transform:uppercase">Ganho est.</th>
-        <th style="width:120px;font-size:9px;font-weight:700;color:#aaa;padding:4px;text-transform:uppercase">Progresso</th>
-      </tr></thead>
-      <tbody>${rowsHtml}</tbody>
-    </table>
-    <div style="margin-top:12px;padding:8px 12px;background:#FFFBEB;border-radius:6px;font-size:11px;color:#B45309;font-weight:700;display:flex;justify-content:space-between;align-items:center">
-      <span>🎯 Potencial total — resolver os ${negSegs.length} ${dimLabel}(s) acima</span>
-      <span style="font-size:14px;color:#00875A">+${maxGain.toFixed(1)} pp</span>
-    </div>`;
+  if(mode==='remove') {
+    // "E se removêssemos?" — NPS sem aquele segmento
+    rowsHtml=negSegs.map((sg,i)=>{
+      const encSem=totalEnc-sg.enc;
+      const npsSem=encSem>0?(totalNpsW-sg.nps*sg.enc)/encSem:npsAtual;
+      const delta=npsSem-npsAtual;
+      const isPos=delta>=0;
+      return `<tr style="border-bottom:1px solid #F5F5F5">
+        <td style="width:24px;font-size:11px;font-weight:700;color:#bbb;padding:6px 4px">${i+1}</td>
+        <td style="font-size:11px;padding:6px 8px;max-width:220px">
+          <div style="font-weight:600;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${sg.key}">${sg.key}</div>
+          <div style="font-size:10px;color:#999;margin-top:1px">${fmtEnc(sg.enc)} enc · GAP atual: ${fmtGap(sg.gap)} pp</div>
+        </td>
+        <td style="width:80px;text-align:right;font-size:11px;padding:6px">
+          <div style="font-size:10px;color:#888">${fmtNPS(npsAtual)} → <strong style="font-size:12px;color:${isPos?'#00875A':'#F23D4F'}">${fmtNPS(npsSem)}</strong></div>
+        </td>
+        <td style="width:80px;text-align:right;padding:6px">
+          <span style="font-size:13px;font-weight:800;color:${isPos?'#00875A':'#888'}">${isPos?'+':''}${delta.toFixed(1)} pp</span>
+        </td>
+        <td style="width:65px;text-align:right;font-size:10px;color:#aaa;padding:6px">${((sg.enc/totalEnc)*100).toFixed(1)}% vol</td>
+      </tr>`;
+    }).join('');
+    summaryHtml=`<div style="margin-top:10px;padding:8px 12px;background:#EBF3FF;border-radius:6px;font-size:11px;color:#1D4ED8;font-weight:600">
+      ✂️ NPS atual: <strong>${fmtNPS(npsAtual)}</strong> — cada linha mostra o NPS se aquele segmento fosse removido da base.</div>`;
+    document.getElementById('sim-table-wrap').innerHTML=`
+      <div style="margin-bottom:10px;font-size:11px;color:#888">Simulação por <strong>${dimLabel}</strong> — NPS calculado sem o segmento na base.</div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="border-bottom:2px solid #F0F0F0">
+          <th style="width:24px;font-size:9px;font-weight:700;color:#aaa;padding:4px;text-transform:uppercase">#</th>
+          <th style="font-size:9px;font-weight:700;color:#aaa;padding:4px;text-align:left;text-transform:uppercase">${dimLabel}</th>
+          <th style="width:80px;font-size:9px;font-weight:700;color:#aaa;padding:4px;text-align:right;text-transform:uppercase">NPS sem ele</th>
+          <th style="width:80px;font-size:9px;font-weight:700;color:#aaa;padding:4px;text-align:right;text-transform:uppercase">Δ NPS</th>
+          <th style="width:65px;font-size:9px;font-weight:700;color:#aaa;padding:4px;text-align:right;text-transform:uppercase">% Vol</th>
+        </tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>${summaryHtml}`;
+  } else {
+    // Modo "fix" — ganho por resolver
+    let cumGain=0;
+    const gains=negSegs.map(sg=>sg.enc*Math.abs(sg.gap)/totalEnc);
+    const maxGain=gains.reduce((s,g)=>s+g,0);
+    rowsHtml=negSegs.map((sg,i)=>{
+      const gain=gains[i]; cumGain+=gain;
+      const barPct=Math.round((gain/Math.max(maxGain,0.001))*100);
+      return `<tr style="border-bottom:1px solid #F5F5F5">
+        <td style="width:24px;font-size:11px;font-weight:700;color:#bbb;padding:6px 4px">${i+1}</td>
+        <td style="font-size:11px;padding:6px 8px;max-width:220px">
+          <div style="font-weight:600;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${sg.key}">${sg.key}</div>
+          <div style="font-size:10px;color:#999;margin-top:1px">${fmtEnc(sg.enc)} enc</div>
+        </td>
+        <td style="width:70px;text-align:right;font-size:11px;font-weight:700;color:#F23D4F;padding:6px 6px">${fmtGap(sg.gap)} pp</td>
+        <td style="width:80px;text-align:right;padding:6px 6px">
+          <span style="font-size:12px;font-weight:800;color:#00875A">+${gain.toFixed(1)} pp</span>
+        </td>
+        <td style="width:120px;padding:6px 8px">
+          <div style="font-size:9px;color:#999;margin-bottom:3px">+${cumGain.toFixed(1)} pp acum.</div>
+          <div style="background:#F0F0F0;border-radius:3px;height:5px;overflow:hidden">
+            <div style="background:linear-gradient(90deg,#00A650,#00C060);height:100%;width:${barPct}%;border-radius:3px;transition:width .3s"></div>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+    document.getElementById('sim-table-wrap').innerHTML=`
+      <div style="margin-bottom:10px;font-size:11px;color:#888">Base: <strong>${fmtEnc(totalEnc)} enc</strong> por <strong>${dimLabel}</strong>.</div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr style="border-bottom:2px solid #F0F0F0">
+          <th style="width:24px;font-size:9px;font-weight:700;color:#aaa;padding:4px;text-transform:uppercase">#</th>
+          <th style="font-size:9px;font-weight:700;color:#aaa;padding:4px;text-align:left;text-transform:uppercase">${dimLabel}</th>
+          <th style="width:70px;font-size:9px;font-weight:700;color:#aaa;padding:4px;text-align:right;text-transform:uppercase">GAP</th>
+          <th style="width:80px;font-size:9px;font-weight:700;color:#aaa;padding:4px;text-align:right;text-transform:uppercase">Ganho est.</th>
+          <th style="width:120px;font-size:9px;font-weight:700;color:#aaa;padding:4px;text-transform:uppercase">Progresso</th>
+        </tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+      <div style="margin-top:12px;padding:8px 12px;background:#FFFBEB;border-radius:6px;font-size:11px;color:#B45309;font-weight:700;display:flex;justify-content:space-between;align-items:center">
+        <span>🎯 Potencial total — resolver os ${negSegs.length} ${dimLabel}(s)</span>
+        <span style="font-size:14px;color:#00875A">+${maxGain.toFixed(1)} pp</span>
+      </div>`;
+  }
 }
 
 function buildWaterfallAll() { buildDrillAll(); } // compat
@@ -853,6 +898,7 @@ function buildImpactSection(containerId, segs, opts={}) {
       <td class="tr" style="width:60px;font-size:11px;color:#3483FA;font-weight:700">${fmtNPS(s.nps)}</td>
       <td class="tr" style="width:60px;font-size:11px;color:#9CA3AF">${fmtNPS(s.target)}</td>
       <td class="tr" style="width:70px;font-size:11px;color:#888">${fmtEnc(s.enc)}</td>
+      <td class="tr" style="width:55px;font-size:10px;color:#aaa">${(s.weight*100).toFixed(1)}%</td>
       ${hasDet?`<td class="tr" style="width:70px;font-size:11px;color:#F23D4F">${s.det?fmtEnc(s.det):'—'}</td>`:''}
     </tr>`;
   }).join('');
@@ -865,6 +911,7 @@ function buildImpactSection(containerId, segs, opts={}) {
       <th class="tr">NPS</th>
       <th class="tr">Meta</th>
       <th class="tr">Volume</th>
+      <th class="tr" title="% do volume total">% Rep</th>
       ${hasDet?'<th class="tr">Detratores</th>':''}
     </tr></thead>
     <tbody>${rows}</tbody>
@@ -1294,9 +1341,112 @@ function renderComments(comments,container,resumoHtml='') {
     </div>`).join('')}`;
 }
 
+// ── SECTION: REP OFENSOR ─────────────────────────────────────────────────
+function buildRep() {
+  const repF =document.getElementById('rep-f-office')?.value||'ALL';
+  const canalF=document.getElementById('rep-f-canal')?.value||'ALL';
+  const rows=filterRows(window.NPS_REP_DATA||[],{
+    office:repF!=='ALL'?repF:F.office,
+    canal :canalF!=='ALL'?canalF:F.canal,
+  });
+
+  // Agrupa por rep — calcula recorrência (semanas com GAP negativo)
+  const groups={};
+  rows.forEach(r=>{
+    const k=r.rep_ldap||r.rep_name||'?';
+    if(!groups[k]) groups[k]={ldap:r.rep_ldap,name:r.rep_name||r.rep_ldap,
+      team:r.team,ch:r.ch,office:r.office,seniority:r.seniority,processo:r.processo,
+      enc:0,npsW:0,tgtW:0,negWeeks:0,totalWeeks:0};
+    groups[k].enc  +=(r.enc||0);
+    groups[k].npsW +=(r.nps||0)*(r.enc||0);
+    groups[k].tgtW +=(r.target||0)*(r.enc||0);
+    groups[k].totalWeeks++;
+    if((r.nps||0)<(r.target||0)) groups[k].negWeeks++;
+  });
+
+  const reps=Object.values(groups).filter(g=>g.enc>=3).map(g=>({
+    ...g,
+    nps:g.npsW/g.enc, target:g.tgtW/g.enc,
+    gap:(g.npsW-g.tgtW)/g.enc,
+    recurrence:g.totalWeeks>0?Math.round((g.negWeeks/g.totalWeeks)*100):0
+  })).filter(g=>g.gap<0).sort((a,b)=>a.gap-b.gap).slice(0,20);
+
+  document.getElementById('tbadge-rep').textContent=reps.length||'0';
+
+  const filtersHtml=`<div class="section-filters" style="margin-bottom:12px">
+    <span class="sf-lbl">Filtrar:</span>
+    <div class="fg"><label>Office</label>
+      <select class="sfsel" id="rep-f-office" onchange="buildRep()">
+        <option value="ALL">Todos</option>
+        ${[...new Set((window.NPS_REP_DATA||[]).map(r=>r.office).filter(Boolean))].sort()
+          .map(o=>`<option value="${o}" ${repF===o?'selected':''}>${o}</option>`).join('')}
+      </select></div>
+    <div class="fg"><label>Canal</label>
+      <select class="sfsel" id="rep-f-canal" onchange="buildRep()">
+        <option value="ALL">Todos</option>
+        <option value="MULTICANAL C2C" ${canalF==='MULTICANAL C2C'?'selected':''}>C2C</option>
+        <option value="MULTICANAL CHAT" ${canalF==='MULTICANAL CHAT'?'selected':''}>Chat</option>
+        <option value="OFFLINE" ${canalF==='OFFLINE'?'selected':''}>Offline</option>
+      </select></div>
+  </div>`;
+
+  const el=document.getElementById('tab-rep');
+  if(!reps.length){
+    el.innerHTML=`<span class="section-title-bar">REP Ofensor — Abaixo da Meta</span>`+filtersHtml+
+      '<div class="empty-msg">Nenhum rep abaixo da meta no filtro atual.</div>';
+    return;
+  }
+
+  const maxAbsGap=Math.max(...reps.map(r=>Math.abs(r.gap)),1);
+  const rowsHtml=reps.map((r,i)=>{
+    const bp=Math.round((Math.abs(r.gap)/maxAbsGap)*100);
+    const recColor=r.recurrence>=75?'#F23D4F':r.recurrence>=50?'#FF7733':'#F59E0B';
+    const isHot=i<3;
+    return `<tr style="border-left:3px solid ${isHot?'#F59E0B':'transparent'};${isHot?'background:#FFFBEB':''}">
+      <td style="width:28px;text-align:center;font-size:11px;font-weight:700;color:#bbb">${i+1}</td>
+      <td style="min-width:140px">
+        <div style="font-size:11px;font-weight:${isHot?700:600};color:${isHot?'#222':'#555'}">${isHot?'🔥 ':''}${r.name||r.ldap}</div>
+        <div style="font-size:10px;color:#aaa;margin-top:2px">${r.office||''} · ${CH_LABEL[r.ch]||r.ch||''} · ${r.seniority||''}</div>
+      </td>
+      <td style="max-width:160px">
+        <div style="font-size:10px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.processo||''}">${(r.processo||'—').length>30?(r.processo||'').slice(0,28)+'…':r.processo||'—'}</div>
+      </td>
+      <td class="tr" style="width:70px">
+        <span style="font-size:12px;font-weight:800;color:#F23D4F">${fmtGap(r.gap)} pp</span>
+        <div style="margin-top:3px;background:#F0F0F0;border-radius:2px;height:4px;overflow:hidden">
+          <div style="height:100%;width:${bp}%;background:#F23D4F;border-radius:2px"></div>
+        </div>
+      </td>
+      <td class="tr" style="width:55px;font-size:11px;color:#3483FA;font-weight:700">${fmtNPS(r.nps)}</td>
+      <td class="tr" style="width:55px;font-size:11px;color:#9CA3AF">${fmtNPS(r.target)}</td>
+      <td class="tr" style="width:55px;font-size:11px;color:#888">${fmtEnc(r.enc)}</td>
+      <td class="tr" style="width:70px">
+        <span style="font-size:11px;font-weight:700;color:${recColor}" title="${r.negWeeks} de ${r.totalWeeks} semanas negativas">
+          ${r.recurrence}% <span style="font-size:9px;font-weight:400;color:#aaa">(${r.negWeeks}/${r.totalWeeks}sem)</span>
+        </span>
+      </td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML=`<span class="section-title-bar">REP Ofensor — Abaixo da Meta (Top 20)</span>`+filtersHtml+
+    `<div class="dtable-wrap"><table>
+      <thead><tr>
+        <th style="width:28px"></th>
+        <th>Rep (LDAP)</th>
+        <th>Processo Principal</th>
+        <th class="tr">GAP</th>
+        <th class="tr">NPS</th>
+        <th class="tr">Meta</th>
+        <th class="tr">Enc</th>
+        <th class="tr" title="% de semanas com GAP negativo">Recorrência</th>
+      </tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table></div>`;
+}
+
 // ── TABS ──────────────────────────────────────────────────────────────────
 function switchTab(tab) {
-  ['office','canal','processo','cdu','solucao','senioridade','comentarios'].forEach(t=>{
+  ['office','canal','processo','cdu','solucao','senioridade','rep','comentarios'].forEach(t=>{
     document.getElementById('tab-btn-'+t).classList.toggle('active',t===tab);
     document.getElementById('tab-'+t).classList.toggle('active',t===tab);
   });
@@ -1312,6 +1462,7 @@ function renderActiveTab() {
     case 'cdu':         buildCDU();         break;
     case 'solucao':     buildSolucao();     break;
     case 'senioridade': buildSenioridade(); break;
+    case 'rep':         buildRep();         break;
     case 'comentarios': buildComentarios(); break;
   }
 }
