@@ -1037,32 +1037,40 @@ function buildProcesso() {
 
 // ── SECTION: CDU ──────────────────────────────────────────────────────────
 function buildCDU() {
-  const teamFilter=document.getElementById('cdu-f-team')?.value||'ALL';
+  const teamFilter =document.getElementById('cdu-f-team')?.value||'ALL';
   const canalFilter=document.getElementById('cdu-f-canal')?.value||'ALL';
+  const procFilter =document.getElementById('cdu-f-proc')?.value||'ALL';
   const ov={ team:teamFilter!=='ALL'?teamFilter:F.team, canal:canalFilter!=='ALL'?canalFilter:F.canal };
 
   let rows=filterRows(window.NPS_CDU_DATA||[],ov);
   if(!rows.length) rows=filterRows(window.NPS_PROCESS_DATA||[],ov).filter(r=>r.cdu);
+  if(procFilter!=='ALL') rows=rows.filter(r=>r.processo===procFilter);
 
-  const allSegs=aggregateBy(rows,'cdu').filter(s=>s.enc>=10).sort((a,b)=>a.gap-b.gap);
+  const allSegs=aggregateBy(rows,'cdu').filter(s=>s.enc>=10).sort((a,b)=>a.contribution-b.contribution);
   const segs=allSegs.slice(0,10);
   document.getElementById('tbadge-cdu').textContent=allSegs.length;
 
+  const processos=[...new Set((window.NPS_CDU_DATA||[]).map(r=>r.processo).filter(Boolean))].sort();
   const filtersHtml=`<div class="section-filters">
     <span class="sf-lbl">Filtrar CDU:</span>
     <div class="fg"><label>Equipe</label>
       <select class="sfsel" id="cdu-f-team" onchange="buildCDU()">
-        <option value="ALL">Todos</option>
-        <option value="BR_Buyers_Pre_Entrega">Pré-Entrega</option>
-        <option value="BR_Buyers_Post_Entrega">Pós-Entrega</option>
-        <option value="BR_Buyers_Compra">Compra</option>
+        <option value="ALL">Todas</option>
+        <option value="BR_Buyers_Pre_Entrega" ${teamFilter==='BR_Buyers_Pre_Entrega'?'selected':''}>Pré-Entrega</option>
+        <option value="BR_Buyers_Post_Entrega" ${teamFilter==='BR_Buyers_Post_Entrega'?'selected':''}>Pós-Entrega</option>
+        <option value="BR_Buyers_Compra" ${teamFilter==='BR_Buyers_Compra'?'selected':''}>Compra</option>
       </select></div>
     <div class="fg"><label>Canal</label>
       <select class="sfsel" id="cdu-f-canal" onchange="buildCDU()">
         <option value="ALL">Todos</option>
-        <option value="MULTICANAL C2C">C2C</option>
-        <option value="MULTICANAL CHAT">Chat</option>
-        <option value="OFFLINE">Offline</option>
+        <option value="MULTICANAL C2C" ${canalFilter==='MULTICANAL C2C'?'selected':''}>C2C</option>
+        <option value="MULTICANAL CHAT" ${canalFilter==='MULTICANAL CHAT'?'selected':''}>Chat</option>
+        <option value="OFFLINE" ${canalFilter==='OFFLINE'?'selected':''}>Offline</option>
+      </select></div>
+    <div class="fg"><label>Processo</label>
+      <select class="sfsel" id="cdu-f-proc" onchange="buildCDU()">
+        <option value="ALL">Todos</option>
+        ${processos.map(p=>`<option value="${p}" ${procFilter===p?'selected':''}>${p.length>38?p.slice(0,36)+'…':p}</option>`).join('')}
       </select></div>
   </div>`;
 
@@ -1078,17 +1086,47 @@ function buildCDU() {
 
 // ── SECTION: SOLUÇÃO ──────────────────────────────────────────────────────
 function buildSolucao() {
-  const rows=filterRows(window.NPS_SOLUCAO_DATA||[]);
-  const allSegs=aggregateBy(rows,'solucao').filter(s=>s.enc>=10).sort((a,b)=>a.gap-b.gap);
+  const teamFilter =document.getElementById('sol-f-team')?.value||'ALL';
+  const canalFilter=document.getElementById('sol-f-canal')?.value||'ALL';
+  const procFilter =document.getElementById('sol-f-proc')?.value||'ALL';
+  const ov={ team:teamFilter!=='ALL'?teamFilter:F.team, canal:canalFilter!=='ALL'?canalFilter:F.canal };
+
+  let rows=filterRows(window.NPS_SOLUCAO_DATA||[],ov);
+  if(procFilter!=='ALL') rows=rows.filter(r=>r.processo===procFilter);
+
+  const allSegs=aggregateBy(rows,'solucao').filter(s=>s.enc>=10).sort((a,b)=>a.contribution-b.contribution);
   const segs=allSegs.slice(0,10);
   document.getElementById('tbadge-solucao').textContent=allSegs.length;
 
+  const processos=[...new Set((window.NPS_SOLUCAO_DATA||[]).map(r=>r.processo).filter(Boolean))].sort();
+  const filtersHtml=`<div class="section-filters">
+    <span class="sf-lbl">Filtrar Solução:</span>
+    <div class="fg"><label>Equipe</label>
+      <select class="sfsel" id="sol-f-team" onchange="buildSolucao()">
+        <option value="ALL">Todas</option>
+        <option value="BR_Buyers_Pre_Entrega" ${teamFilter==='BR_Buyers_Pre_Entrega'?'selected':''}>Pré-Entrega</option>
+        <option value="BR_Buyers_Post_Entrega" ${teamFilter==='BR_Buyers_Post_Entrega'?'selected':''}>Pós-Entrega</option>
+        <option value="BR_Buyers_Compra" ${teamFilter==='BR_Buyers_Compra'?'selected':''}>Compra</option>
+      </select></div>
+    <div class="fg"><label>Canal</label>
+      <select class="sfsel" id="sol-f-canal" onchange="buildSolucao()">
+        <option value="ALL">Todos</option>
+        <option value="MULTICANAL C2C" ${canalFilter==='MULTICANAL C2C'?'selected':''}>C2C</option>
+        <option value="MULTICANAL CHAT" ${canalFilter==='MULTICANAL CHAT'?'selected':''}>Chat</option>
+        <option value="OFFLINE" ${canalFilter==='OFFLINE'?'selected':''}>Offline</option>
+      </select></div>
+    <div class="fg"><label>Processo</label>
+      <select class="sfsel" id="sol-f-proc" onchange="buildSolucao()">
+        <option value="ALL">Todos</option>
+        ${processos.map(p=>`<option value="${p}" ${procFilter===p?'selected':''}>${p.length>38?p.slice(0,36)+'…':p}</option>`).join('')}
+      </select></div>
+  </div>`;
+
   const el=document.getElementById('tab-solucao');
-  el.innerHTML=`<span class="section-title-bar">Outliers por GAP vs TGT — Solução (Top 10)</span><div id="tab-solucao-inner"></div><div id="tab-solucao-hl"></div>`;
+  el.innerHTML=`<span class="section-title-bar">Outliers por GAP vs TGT — Solução (Top 10)</span>`+filtersHtml+'<div id="tab-solucao-inner"></div><div id="tab-solucao-hl"></div>';
   if(!segs.length){document.getElementById('tab-solucao-inner').innerHTML='<div class="empty-msg">Sem dados.</div>';return;}
   buildImpactSection('tab-solucao-inner',segs,{
     colLabel:'Solução (CX_SOL_NAME)',
-    detail:s=>`Detratores: ${fmtEnc(s.det)} | Oportunidade: ${Math.round(s.opp)}`,
     labelFn:s=>`<span class="dim-badge db-solucao">Solução</span>${s.key}`,
   });
   document.getElementById('tab-solucao-hl').innerHTML=buildHighlight(allSegs,'solucao');
@@ -1178,16 +1216,13 @@ function buildSenioridade() {
 function buildComentarios() {
   const allComments=window.NPS_COMMENTS_DATA||[];
   const el=document.getElementById('tab-comentarios');
-  document.getElementById('tbadge-comentarios').textContent=allComments.length||'0';
 
   // Valores de filtro atuais
-  const fTipo  =document.getElementById('com-f-tipo')?.value  ||'ALL';
-  const fProc  =document.getElementById('com-f-proc')?.value  ||'ALL';
-  const fCdu   =document.getElementById('com-f-cdu')?.value   ||'ALL';
-  const fSol   =document.getElementById('com-f-sol')?.value   ||'ALL';
+  const fTipo=document.getElementById('com-f-tipo')?.value||'ALL';
+  const fCdu =document.getElementById('com-f-cdu')?.value ||'ALL';
+  const fSol =document.getElementById('com-f-sol')?.value ||'ALL';
 
-  // Opções dinâmicas para os selects
-  const processos=[...new Set(allComments.map(c=>c.processo).filter(Boolean))].sort();
+  // Opções dinâmicas
   const cdus    =[...new Set(allComments.map(c=>c.cdu).filter(Boolean))].sort();
   const solucoes=[...new Set(allComments.map(c=>c.solucao).filter(Boolean))].sort();
 
@@ -1199,11 +1234,6 @@ function buildComentarios() {
         <option value="DETRATOR" ${fTipo==='DETRATOR'?'selected':''}>Detratores</option>
         <option value="NEUTRO"   ${fTipo==='NEUTRO'?'selected':''}>Neutros</option>
         <option value="PROMOTOR" ${fTipo==='PROMOTOR'?'selected':''}>Promotores</option>
-      </select></div>
-    <div class="fg"><label>Processo</label>
-      <select class="sfsel" id="com-f-proc" onchange="buildComentarios()">
-        <option value="ALL">Todos</option>
-        ${processos.map(p=>`<option value="${p}" ${fProc===p?'selected':''}>${p.length>38?p.slice(0,36)+'…':p}</option>`).join('')}
       </select></div>
     ${cdus.length?`<div class="fg"><label>CDU</label>
       <select class="sfsel" id="com-f-cdu" onchange="buildComentarios()">
@@ -1220,42 +1250,20 @@ function buildComentarios() {
   // Aplicar filtros
   let comments=allComments;
   if(fTipo!=='ALL') comments=comments.filter(c=>c.tipo===fTipo);
-  if(fProc!=='ALL') comments=comments.filter(c=>c.processo===fProc);
   if(fCdu !=='ALL') comments=comments.filter(c=>c.cdu===fCdu);
   if(fSol !=='ALL') comments=comments.filter(c=>c.solucao===fSol);
 
-  // Resumo de Oportunidades
-  const procRows=filterRows(window.NPS_PROCESS_DATA||[]);
-  const procSegs=aggregateBy(procRows,'processo').filter(s=>s.gap<0&&s.enc>=10)
-    .sort((a,b)=>b.opp-a.opp).slice(0,8);
-
-  const resumoHtml=procSegs.length?`
-  <div class="opp-box" style="margin-bottom:16px">
-    <div class="opp-box-title">📊 Resumo de Oportunidades</div>
-    <div class="dtable-wrap"><table>
-      <thead><tr>
-        <th>#</th><th>Processo</th>
-        <th class="tr">GAP</th><th class="tr">Volume</th><th class="tr">Detratores</th>
-      </tr></thead>
-      <tbody>${procSegs.map((s,i)=>`<tr>
-        <td>${i+1}</td>
-        <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.key}">${s.key}</td>
-        <td class="tr val-neg">${fmtGap(s.gap)} pp</td>
-        <td class="tr">${fmtEnc(s.enc)}</td>
-        <td class="tr val-neg">${fmtEnc(s.det)}</td>
-      </tr>`).join('')}</tbody>
-    </table></div>
-  </div>
-  ${buildActionPlan(procSegs)}`:'';
+  // Atualizar badge com o total filtrado
+  document.getElementById('tbadge-comentarios').textContent=comments.length||'0';
 
   if(!comments.length){
-    el.innerHTML=filtersHtml+resumoHtml;
+    el.innerHTML=filtersHtml+'<div class="empty-msg">Nenhum comentário encontrado.</div>'+buildActionPlan();
     return;
   }
-  renderComments(comments, el, filtersHtml+resumoHtml);
+  renderComments(comments, el, filtersHtml);
 }
 
-function buildActionPlan(procSegs) {
+function buildActionPlan(procSegs=[]) {
   return `<div style="background:#fff;border:1.5px solid #E0E0E0;border-radius:10px;padding:14px 18px;margin-bottom:16px">
     <div style="font-size:11px;font-weight:800;color:#333;text-transform:uppercase;letter-spacing:.4px;margin-bottom:12px">
       📋 Plano de Ações Sugerido
@@ -1346,17 +1354,19 @@ function renderComments(comments,container,resumoHtml='') {
         ${c.cdu?`<span class="ctag" style="background:#FFF0F0;color:#DC2626">${c.cdu}</span>`:''}
         ${c.solucao?`<span class="ctag" style="background:#FFF8E1;color:#B45309">${c.solucao}</span>`:''}
       </div>
-    </div>`).join('')}`;
+    </div>`).join('')}
+  ${buildActionPlan()}`;
 }
 
 // ── SECTION: REP OFENSOR ─────────────────────────────────────────────────
 function buildRep() {
-  const repF =document.getElementById('rep-f-office')?.value||'ALL';
-  const canalF=document.getElementById('rep-f-canal')?.value||'ALL';
+  const teamF  =document.getElementById('rep-f-team')?.value||'ALL';
+  const canalF =document.getElementById('rep-f-canal')?.value||'ALL';
+  const procF  =document.getElementById('rep-f-proc')?.value||'ALL';
   const rows=filterRows(window.NPS_REP_DATA||[],{
-    office:repF!=='ALL'?repF:F.office,
-    canal :canalF!=='ALL'?canalF:F.canal,
-  });
+    team :teamF!=='ALL'?teamF:F.team,
+    canal:canalF!=='ALL'?canalF:F.canal,
+  }).filter(r=>procF==='ALL'||r.processo===procF);
 
   // Agrupa por rep — calcula recorrência (semanas com GAP negativo)
   const groups={};
@@ -1381,13 +1391,15 @@ function buildRep() {
 
   document.getElementById('tbadge-rep').textContent=reps.length||'0';
 
+  const processoRep=[...new Set((window.NPS_REP_DATA||[]).map(r=>r.processo).filter(Boolean))].sort();
   const filtersHtml=`<div class="section-filters" style="margin-bottom:12px">
     <span class="sf-lbl">Filtrar:</span>
-    <div class="fg"><label>Office</label>
-      <select class="sfsel" id="rep-f-office" onchange="buildRep()">
-        <option value="ALL">Todos</option>
-        ${[...new Set((window.NPS_REP_DATA||[]).map(r=>r.office).filter(Boolean))].sort()
-          .map(o=>`<option value="${o}" ${repF===o?'selected':''}>${o}</option>`).join('')}
+    <div class="fg"><label>Equipe</label>
+      <select class="sfsel" id="rep-f-team" onchange="buildRep()">
+        <option value="ALL">Todas</option>
+        <option value="BR_Buyers_Pre_Entrega" ${teamF==='BR_Buyers_Pre_Entrega'?'selected':''}>Pré-Entrega</option>
+        <option value="BR_Buyers_Post_Entrega" ${teamF==='BR_Buyers_Post_Entrega'?'selected':''}>Pós-Entrega</option>
+        <option value="BR_Buyers_Compra" ${teamF==='BR_Buyers_Compra'?'selected':''}>Compra</option>
       </select></div>
     <div class="fg"><label>Canal</label>
       <select class="sfsel" id="rep-f-canal" onchange="buildRep()">
@@ -1395,6 +1407,11 @@ function buildRep() {
         <option value="MULTICANAL C2C" ${canalF==='MULTICANAL C2C'?'selected':''}>C2C</option>
         <option value="MULTICANAL CHAT" ${canalF==='MULTICANAL CHAT'?'selected':''}>Chat</option>
         <option value="OFFLINE" ${canalF==='OFFLINE'?'selected':''}>Offline</option>
+      </select></div>
+    <div class="fg"><label>Processo</label>
+      <select class="sfsel" id="rep-f-proc" onchange="buildRep()">
+        <option value="ALL">Todos</option>
+        ${processoRep.map(p=>`<option value="${p}" ${procF===p?'selected':''}>${p.length>38?p.slice(0,36)+'…':p}</option>`).join('')}
       </select></div>
   </div>`;
 

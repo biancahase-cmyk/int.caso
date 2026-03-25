@@ -208,6 +208,7 @@ SELECT
   NP.USER_TEAM_NAME,
   NP.USER_TEAM_CHANNEL,
   NP.USER_OFFICE,
+  NP.PRO_PROCESS_NAME                                           AS PROCESSO,
   NP.CDU                                                        AS CDU,
   FORMAT_DATE('%Y-%m-%d', DATE_TRUNC(NP.RES_END_DATE, MONTH))  AS PERIODO,
   'MES'                                                          AS TIPO,
@@ -218,7 +219,7 @@ SELECT
   ROUND(AVG(NP.SURVEY_TARGET_VALUE) * 100, 2)                  AS TARGET,
   SUM(NP.DETRACTOR)                                             AS DETRATORES
 FROM BASE_NPS_Y20_DETAIL NP
-GROUP BY 1, 2, 3, 4, 5, 6
+GROUP BY 1, 2, 3, 4, 5, 6, 7
 
 UNION ALL
 
@@ -226,6 +227,7 @@ SELECT
   NP.USER_TEAM_NAME,
   NP.USER_TEAM_CHANNEL,
   NP.USER_OFFICE,
+  NP.PRO_PROCESS_NAME,
   NP.CDU,
   FORMAT_DATE('%Y-%m-%d', DATE_TRUNC(NP.RES_END_DATE, ISOWEEK)) AS PERIODO,
   'SEMANA'                                                        AS TIPO,
@@ -237,7 +239,7 @@ SELECT
   SUM(NP.DETRACTOR)                                              AS DETRATORES
 FROM BASE_NPS_Y20_DETAIL NP
 WHERE DATE_TRUNC(NP.RES_END_DATE, ISOWEEK) >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 WEEK)
-GROUP BY 1, 2, 3, 4, 5, 6
+GROUP BY 1, 2, 3, 4, 5, 6, 7
 
 ORDER BY 1, 2, 3, 4, 5
 """
@@ -287,6 +289,7 @@ QUERY_SOLUCAO = BASE_CTE + """
 SELECT
   NP.USER_TEAM_NAME,
   NP.USER_TEAM_CHANNEL,
+  NP.PRO_PROCESS_NAME                                           AS PROCESSO,
   NP.CX_SOL_NAME                                               AS SOLUCAO,
   FORMAT_DATE('%Y-%m-%d', DATE_TRUNC(NP.RES_END_DATE, MONTH))  AS PERIODO,
   'MES'                                                          AS TIPO,
@@ -297,13 +300,14 @@ SELECT
   ROUND(AVG(NP.SURVEY_TARGET_VALUE) * 100, 2)                  AS TARGET,
   SUM(NP.DETRACTOR)                                             AS DETRATORES
 FROM BASE_NPS_Y20_DETAIL NP
-GROUP BY 1, 2, 3, 4, 5
+GROUP BY 1, 2, 3, 4, 5, 6
 
 UNION ALL
 
 SELECT
   NP.USER_TEAM_NAME,
   NP.USER_TEAM_CHANNEL,
+  NP.PRO_PROCESS_NAME,
   NP.CX_SOL_NAME,
   FORMAT_DATE('%Y-%m-%d', DATE_TRUNC(NP.RES_END_DATE, ISOWEEK)) AS PERIODO,
   'SEMANA'                                                        AS TIPO,
@@ -315,7 +319,7 @@ SELECT
   SUM(NP.DETRACTOR)                                              AS DETRATORES
 FROM BASE_NPS_Y20_DETAIL NP
 WHERE DATE_TRUNC(NP.RES_END_DATE, ISOWEEK) >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 WEEK)
-GROUP BY 1, 2, 3, 4, 5
+GROUP BY 1, 2, 3, 4, 5, 6
 
 ORDER BY 1, 2, 3, 4
 """
@@ -499,6 +503,7 @@ def main():
                 "team":    r.USER_TEAM_NAME,
                 "ch":      r.USER_TEAM_CHANNEL,
                 "office":  r.USER_OFFICE,
+                "processo": r.PROCESSO if r.PROCESSO is not None else "",
                 "cdu":     r.CDU,
                 "period":  str(r.PERIODO),
                 "tipo":    r.TIPO,
@@ -547,6 +552,7 @@ def main():
             {
                 "team":    r.USER_TEAM_NAME,
                 "ch":      r.USER_TEAM_CHANNEL,
+                "processo": r.PROCESSO if r.PROCESSO is not None else "",
                 "solucao": r.SOLUCAO,
                 "period":  str(r.PERIODO),
                 "tipo":    r.TIPO,
