@@ -679,23 +679,45 @@ function populatePeriods(){
     opt.textContent = fmtDateLabel(d, gran);
     sel.appendChild(opt);
   });
-  // forçar valor explicitamente após inserir todas as opções
-  if(dates.includes(cur)) sel.value = cur;
-  else if(dates.length)   sel.value = dates[0]; // mais recente por padrão
+  // prioridade: 1) valor atual se ainda disponível; 2) mês corrente; 3) mais recente
+  const todayYM = new Date().toISOString().substring(0,7); // "YYYY-MM"
+  if(dates.includes(cur)){
+    sel.value = cur;
+  } else if(gran === 'MES' && dates.includes(todayYM)){
+    sel.value = todayYM; // pré-seleciona mês atual
+  } else if(gran === 'SEMANA'){
+    // pré-seleciona a semana mais recente do mês atual se existir, senão a mais recente
+    const thisMonthWeek = dates.find(d => d.startsWith(todayYM));
+    sel.value = thisMonthWeek || (dates.length ? dates[0] : '');
+  } else if(dates.length){
+    sel.value = dates[0]; // mais recente
+  }
 }
 
 function fmtDateLabel(d, gran){
-  if(!d || d==='????-??') return d;
-  const [y,m] = d.split('-');
-  if(gran==='MES') return (MONTH_LABELS[m]||m)+'/'+y;
-  return 'Sem '+d; // para semana: "Sem 2025-W12" etc
+  if(!d) return d;
+  if(gran==='MES'){
+    const [y,m] = d.split('-');
+    return (MONTH_LABELS[m]||m)+'/'+y;
+  }
+  // SEMANA: d é "YYYY-MM-DD" (segunda-feira da semana)
+  if(d.length >= 10){
+    const dt = new Date(d+'T00:00:00');
+    const dd = String(dt.getDate()).padStart(2,'0');
+    const mm = String(dt.getMonth()+1).padStart(2,'0');
+    const end = new Date(dt); end.setDate(dt.getDate()+6);
+    const dd2 = String(end.getDate()).padStart(2,'0');
+    const mm2 = String(end.getMonth()+1).padStart(2,'0');
+    return `${dd}/${mm} – ${dd2}/${mm2}`;
+  }
+  return d;
 }
 
 function applyFilters(){
   const f = getFilters();
   DATA = RAW.filter(r=>{
     if(r.granularity !== f.gran)                            return false;
-    if(f.period !=='ALL' && r.date !== f.period)            return false;
+    if(f.period && f.period !=='ALL' && r.date !== f.period) return false;
     if(f.team      !=='ALL' && r.team      !== f.team)      return false;
     if(f.office    !=='ALL' && r.office    !== f.office)    return false;
     if(f.canal     !=='ALL' && r.canal     !== f.canal)     return false;
@@ -706,22 +728,29 @@ function applyFilters(){
 
 // ── IMPORT ────────────────────────────────────────────────────────────────────
 function processImport(parsed){
-  RAW = parsed.map(r=>({
-    date:        r.DATE_ID ? r.DATE_ID.substring(0,7) : '????-??',
+  RAW = parsed.map(r=>{
+    const gran = r.GRANULARITY || 'MES';
+    // MES: trunca para YYYY-MM; SEMANA: mantém YYYY-MM-DD (início da semana)
+    const dateRaw = r.DATE_ID || '';
+    const date = gran === 'SEMANA'
+      ? (dateRaw.substring(0,10) || '????-??-??')
+      : (dateRaw.substring(0,7)  || '????-??');
+    return {
+    date,
     team:        r.CX_TEAM_NAME || '(sem equipe)',
     office:      r.USER_OFFICE  || '(sem office)',
     canal:       r.CANAL        || '(sem canal)',
     manager:     r.CS_MANAGER   || '(sem manager)',
     srmanager:   r.CS_SR_MANAGER|| '(sem SR manager)',
     seniority:   r.USER_AGE_SUBGROUP_NAME || '(sem dado)',
-    granularity: r.GRANULARITY  || 'MES',
+    granularity: gran,
     num:         Number(r.NUMERATOR   ||0),
     den:         Number(r.DENOMINATOR ||0),
     processes:   Array.isArray(r.PROCESS_NAME_LIST)  ? r.PROCESS_NAME_LIST  : [],
     solutions:   Array.isArray(r.SOLUTION_NAME_LIST) ? r.SOLUTION_NAME_LIST : [],
     cdus:        Array.isArray(r.CDU_LIST)            ? r.CDU_LIST            : [],
     subcdus:     Array.isArray(r.SUB_CDU_LIST)        ? r.SUB_CDU_LIST        : [],
-  }));
+  };});
   populateFilterOptions();
   render();
 }
