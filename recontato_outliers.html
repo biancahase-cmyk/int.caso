@@ -256,12 +256,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </select>
   </div>
   <div class="fg">
-    <label>SR Manager</label>
-    <select class="fsel" id="f-srmanager" onchange="render()">
-      <option value="ALL">Todos</option>
-    </select>
-  </div>
-  <div class="fg">
     <label>Granularidade</label>
     <select class="fsel" id="f-gran" onchange="onGranChange()">
       <option value="MES">Mês</option>
@@ -285,6 +279,48 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="kcard warn"><div class="kcard-lbl">% Outliers</div><div class="kcard-val" id="kpi-pct">—</div><div class="kcard-sub">KPI principal</div><div class="kcard-delta" id="kpi-delta">—</div></div>
     <div class="kcard purple"><div class="kcard-lbl">Equipes Acima Target</div><div class="kcard-val" id="kpi-teams-above">—</div><div class="kcard-sub">de <span id="kpi-teams-total">—</span> equipes</div></div>
     <div class="kcard ok"><div class="kcard-lbl">Maior Concentração</div><div class="kcard-val" id="kpi-top-team">—</div><div class="kcard-sub" id="kpi-top-team-pct">equipe com maior % outlier</div></div>
+  </div>
+
+  <!-- EVOLUÇÃO MoM / WoW -->
+  <div class="two-col" style="margin-bottom:16px">
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">📈 Evolução Mensal (MoM)</div>
+          <div class="panel-sub">% Outlier por mês — todos os períodos disponíveis</div>
+        </div>
+        <div class="panel-toolbar">
+          <select class="sfsel" id="mom-evo-dim" onchange="buildEvoCharts()">
+            <option value="total">Geral</option>
+            <option value="team">Por Equipe</option>
+            <option value="office">Por Office</option>
+            <option value="canal">Por Canal</option>
+          </select>
+        </div>
+      </div>
+      <div class="panel-body" style="padding-top:0">
+        <div style="position:relative;height:220px"><canvas id="mom-evo-chart"></canvas></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">📅 Evolução Semanal (WoW)</div>
+          <div class="panel-sub">% Outlier por semana — últimas semanas disponíveis</div>
+        </div>
+        <div class="panel-toolbar">
+          <select class="sfsel" id="wow-evo-dim" onchange="buildEvoCharts()">
+            <option value="total">Geral</option>
+            <option value="team">Por Equipe</option>
+            <option value="office">Por Office</option>
+            <option value="canal">Por Canal</option>
+          </select>
+        </div>
+      </div>
+      <div class="panel-body" style="padding-top:0">
+        <div style="position:relative;height:220px"><canvas id="wow-evo-chart"></canvas></div>
+      </div>
+    </div>
   </div>
 
   <!-- MAPA DE CALOR: 3 visões -->
@@ -608,6 +644,7 @@ let DATA = [];
 let hmMode = 'pct';
 let hmView = 'equipe'; // 'equipe' = Office×Equipe | 'office' = Canal×Equipe | 'canal' = Office×Canal
 let paretoChart = null, scatterChart = null, senChart = null, waterfallChart = null;
+let momEvoChart = null, wowEvoChart = null;
 const MONTH_LABELS = {
   '01':'Jan','02':'Fev','03':'Mar','04':'Abr','05':'Mai','06':'Jun',
   '07':'Jul','08':'Ago','09':'Set','10':'Out','11':'Nov','12':'Dez'
@@ -619,7 +656,7 @@ function getFilters(){
     team:      document.getElementById('f-team').value,
     office:    document.getElementById('f-office').value,
     canal:     document.getElementById('f-canal').value,
-    srmanager: document.getElementById('f-srmanager').value,
+    srmanager: 'ALL',
     gran:      document.getElementById('f-gran').value,
     period:    document.getElementById('f-period').value
   };
@@ -736,6 +773,7 @@ function render(){
   buildPareto();
   buildScatter();
   buildWaterfall();
+  buildEvoCharts();
   buildManagers();
   buildMoM();
   buildCDU();
@@ -744,6 +782,116 @@ function render(){
   buildSeniority();
   buildConcentration();
   updateTopbar();
+}
+
+// ── EVOLUÇÃO MoM / WoW ────────────────────────────────────────────────────────
+const EVO_COLORS = ['#3483FA','#F23D4F','#00A650','#FF7733','#8B5CF6','#EC4899','#14B8A6','#F59E0B','#6366F1','#84CC16'];
+
+function buildEvoCharts(){
+  buildOneEvo('MES',  'mom-evo-chart', 'mom-evo-dim',  momEvoChart, c=>{ momEvoChart=c; });
+  buildOneEvo('SEMANA','wow-evo-chart','wow-evo-dim',  wowEvoChart, c=>{ wowEvoChart=c; });
+}
+
+function buildOneEvo(gran, canvasId, dimSelId, chartInst, setChart){
+  const canvas = document.getElementById(canvasId);
+  if(!canvas) return;
+  const dim = document.getElementById(dimSelId)?.value || 'total';
+  const f   = getFilters();
+
+  // filtra RAW por granularidade + filtros (exceto período)
+  const rows = RAW.filter(r=>{
+    if(r.granularity !== gran) return false;
+    if(f.team  !=='ALL' && r.team  !==f.team)  return false;
+    if(f.office!=='ALL' && r.office!==f.office) return false;
+    if(f.canal !=='ALL' && r.canal !==f.canal)  return false;
+    return true;
+  });
+
+  const dates = [...new Set(rows.map(r=>r.date))].sort();
+
+  if(chartInst) chartInst.destroy();
+
+  if(!dates.length){
+    // sem dados para essa granularidade
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#aaa'; ctx.font='12px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('Sem dados de '+(gran==='MES'?'meses':'semanas')+' disponíveis', canvas.width/2, canvas.height/2);
+    setChart(null); return;
+  }
+
+  const labels = dates.map(d=>fmtDateLabel(d, gran));
+  let datasets;
+
+  if(dim === 'total'){
+    const vals = dates.map(d=>{
+      const dr = rows.filter(r=>r.date===d);
+      const n=dr.reduce((s,r)=>s+r.num,0), de=dr.reduce((s,r)=>s+r.den,0);
+      return de>0 ? Math.round(n/de*1000)/10 : null;
+    });
+    datasets = [{
+      label:'% Outlier Geral', data:vals,
+      borderColor:'#F23D4F', backgroundColor:'rgba(242,61,79,.1)',
+      borderWidth:2.5, pointRadius:4, pointBackgroundColor:'#F23D4F',
+      fill:true, tension:.3
+    }];
+  } else {
+    const keyFn = dim==='team'?r=>r.team : dim==='office'?r=>r.office : r=>r.canal;
+    const keys  = [...new Set(rows.map(keyFn))].sort().slice(0,8);
+    datasets = keys.map((k,i)=>({
+      label: k.replace('BR_','').replace(/_/g,' '),
+      data: dates.map(d=>{
+        const dr=rows.filter(r=>r.date===d && keyFn(r)===k);
+        const n=dr.reduce((s,r)=>s+r.num,0), de=dr.reduce((s,r)=>s+r.den,0);
+        return de>0 ? Math.round(n/de*1000)/10 : null;
+      }),
+      borderColor: EVO_COLORS[i%EVO_COLORS.length],
+      backgroundColor:'transparent',
+      borderWidth:2, pointRadius:3, fill:false, tension:.3,
+      spanGaps:true
+    }));
+  }
+
+  const chart = new Chart(canvas,{
+    type:'line', data:{labels, datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'bottom', labels:{font:{size:9}, boxWidth:12, padding:8}},
+        datalabels:{display:false},
+        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.raw}%`}}
+      },
+      scales:{
+        x:{ticks:{font:{size:9}}, grid:{color:'#F5F5F5'}},
+        y:{
+          ticks:{font:{size:9}, callback:v=>v+'%'},
+          grid:{color:'#F5F5F5'},
+          // linha de referência no target
+          afterDataLimits(axis){ axis.max = Math.max(axis.max, TARGET*100+5); }
+        }
+      }
+    },
+    plugins:[{
+      id:'targetLine',
+      afterDraw(chart){
+        const {ctx, scales:{y, x}} = chart;
+        const yPos = y.getPixelForValue(TARGET*100);
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(x.left, yPos);
+        ctx.lineTo(x.right, yPos);
+        ctx.strokeStyle='rgba(242,61,79,.5)';
+        ctx.lineWidth=1.5;
+        ctx.setLineDash([5,4]);
+        ctx.stroke();
+        ctx.fillStyle='#F23D4F';
+        ctx.font='bold 9px sans-serif';
+        ctx.fillText('Target 5%', x.right-52, yPos-4);
+        ctx.restore();
+      }
+    }]
+  });
+  setChart(chart);
 }
 
 function updateTopbar(){
