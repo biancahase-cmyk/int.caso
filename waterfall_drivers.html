@@ -119,8 +119,8 @@ tr:hover td{background:#FAFAFA}
 
 <!-- ABAS BUYER / SELLER -->
 <div class="view-tabs-bar">
-  <button class="view-tab-btn active" data-view="buyer"  onclick="switchView('buyer')">🛍️ BUYER</button>
-  <button class="view-tab-btn"        data-view="cross"  onclick="switchView('cross')">🔀 CROSS</button>
+  <button class="view-tab-btn active" data-view="cross"  onclick="switchView('cross')">🔀 CROSS</button>
+  <button class="view-tab-btn"        data-view="buyer"  onclick="switchView('buyer')">🛍️ BUYER</button>
   <button class="view-tab-btn"        data-view="seller" onclick="switchView('seller')">🛒 SELLER</button>
 </div>
 
@@ -248,7 +248,7 @@ const F    = { tipo:'SEMANA', period:null };
 const DRILL = { driver:null, equipe:null, office:null, canal:null };
 let drillCharts = [null,null,null,null];
 let activeTab   = 'driver';
-let activeView  = 'buyer';   // 'buyer' | 'cross' | 'seller'
+let activeView  = 'cross';   // 'cross' | 'buyer' | 'seller'
 
 const CH_LABEL = { 'MULTICANAL C2C':'C2C', 'MULTICANAL CHAT':'Chat', 'OFFLINE':'Offline' };
 
