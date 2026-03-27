@@ -19,6 +19,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .topbar-period{font-size:11px;background:rgba(0,0,0,.1);padding:3px 10px;border-radius:20px;color:#444;font-weight:600}
 .topbar-link{font-size:10px;color:#555;font-weight:600;text-decoration:none;padding:3px 8px;background:rgba(0,0,0,.08);border-radius:4px}
 
+.view-tabs-bar{background:#fff;border-bottom:2px solid #FFE600;padding:0 24px;display:flex;gap:0;align-items:flex-end;position:sticky;top:48px;z-index:200;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.view-tab-btn{padding:10px 24px;border:none;background:none;font-size:12px;font-weight:800;cursor:pointer;border-bottom:3px solid transparent;color:#888;margin-bottom:-2px;transition:color .15s,border-color .15s}
+.view-tab-btn:hover{color:#333}
+.view-tab-btn.active{color:#222;border-bottom-color:#FFE600;background:#FFFBEB}
 .filter-bar{background:#fff;border-bottom:2px solid #FFE600;padding:10px 24px;display:flex;gap:14px;flex-wrap:wrap;align-items:center;position:sticky;top:96px;z-index:199;box-shadow:0 2px 6px rgba(0,0,0,.08)}
 .fg{display:flex;align-items:center;gap:6px}
 .fg label{font-size:10px;font-weight:700;color:#777;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
@@ -114,11 +118,9 @@ tr:hover td{background:#FAFAFA}
 </div>
 
 <!-- ABAS BUYER / SELLER -->
-<div style="background:#fff;border-bottom:2px solid #FFE600;padding:0 24px;display:flex;gap:4px;align-items:flex-end;position:sticky;top:48px;z-index:200;box-shadow:0 1px 4px rgba(0,0,0,.06)">
-  <button class="view-tab-btn active" data-view="buyer" onclick="switchView('buyer')"
-    style="padding:9px 20px;border:none;background:none;font-size:12px;font-weight:800;cursor:pointer;border-bottom:3px solid #FFE600;color:#222;margin-bottom:-2px">🛍️ BUYER</button>
-  <button class="view-tab-btn" data-view="seller" onclick="switchView('seller')"
-    style="padding:9px 20px;border:none;background:none;font-size:12px;font-weight:800;cursor:pointer;border-bottom:3px solid transparent;color:#888;margin-bottom:-2px">🛒 SELLER</button>
+<div class="view-tabs-bar">
+  <button class="view-tab-btn active" data-view="buyer" onclick="switchView('buyer')">🛍️ BUYER</button>
+  <button class="view-tab-btn" data-view="seller" onclick="switchView('seller')">🛒 SELLER</button>
 </div>
 
 <div class="filter-bar" style="top:96px">
@@ -379,11 +381,12 @@ function getData() {
 // ── INIT ────────────────────────────────────────────────────────────────────
 function populateFilters() {
   const data = getData();
-  if(!data.length){
-    document.getElementById('no-data-banner').style.display='';
-  }
+  document.getElementById('no-data-banner').style.display = data.length ? 'none' : '';
 
-  const periods = latestPeriods(data.length ? data : (window.NPS_PROCESS_DATA||[]), 'SEMANA');
+  // Sincroniza F.tipo com o dropdown atual
+  F.tipo = document.getElementById('f-tipo').value;
+
+  const periods = latestPeriods(data.length ? data : (window.NPS_PROCESS_DATA||[]), F.tipo);
   const sel = document.getElementById('f-period');
   sel.innerHTML='';
   periods.slice(0,8).forEach((p,i)=>{
@@ -394,9 +397,10 @@ function populateFilters() {
   });
   F.period=periods[0]||null;
 
-  // Populate office filter
-  const offices=[...new Set(data.map(r=>r.office).filter(Boolean))].sort();
+  // Limpa e repopula office (evita duplicatas ao trocar de view)
   const offSel=document.getElementById('wf-office');
+  offSel.innerHTML='<option value="ALL">Todos</option>';
+  const offices=[...new Set(data.map(r=>r.office).filter(Boolean))].sort();
   offices.forEach(o=>{
     const opt=document.createElement('option');
     opt.value=o; opt.text=o;
