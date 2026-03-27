@@ -324,6 +324,64 @@ GROUP BY 1, 2, 3, 4, 5, 6
 ORDER BY 1, 2, 3, 4
 """
 
+# ── QUERY DRIVER: DM_CX_NPS_CS_GOALS_MGR_AND_UP filtrado por SR_MANAGER ───────
+# Tabela dedicada de goals por driver — usa SR_MANAGER do lookup para escopo
+QUERY_DRIVER = """
+SELECT
+  i.DRIVER_TARGET_NPS                                               AS DRIVER,
+  i.CX_TEAM_NAME,
+  i.CX_USER_TEAM_CHANNEL,
+  i.CX_USER_OFFICE,
+  i.PRO_PROCESS_NAME,
+  FORMAT_DATE('%Y-%m-%d', DATE_TRUNC(i.DATE_ID, MONTH))            AS PERIODO,
+  'MES'                                                              AS TIPO,
+  CAST(SUM(i.SURVEYS) AS INT64)                                     AS ENCUESTAS,
+  ROUND((SUM(i.PROMOTERS) - SUM(i.DETRACTORS)) * 100.0
+        / NULLIF(SUM(i.SURVEYS), 0), 2)                            AS NPS,
+  ROUND(AVG(i.TARGET_NPS) * 100, 2)                                AS TARGET,
+  CAST(SUM(i.DETRACTORS) AS INT64)                                  AS DETRATORES
+FROM `meli-bi-data.WHOWNER.DM_CX_NPS_CS_GOALS_MGR_AND_UP` i
+INNER JOIN (
+  SELECT DISTINCT NPS_TARGET_DRIVER
+  FROM `meli-bi-data.WHOWNER.LK_CX_NPS_CS_GOALS_DRIVER_MANAGER`
+  WHERE SR_MANAGER = 'Nathalie Valente'
+) lk ON i.DRIVER_TARGET_NPS = lk.NPS_TARGET_DRIVER
+WHERE i.DATE_ID >= DATE_TRUNC(DATE_SUB(CURRENT_DATE(), INTERVAL 5 MONTH), MONTH)
+  AND i.CENTER = 'BR'
+  AND i.FLAG_QUARTER_MONTH = 'MONTH'
+  AND i.SURVEYS > 0
+GROUP BY 1, 2, 3, 4, 5, 6, 7
+
+UNION ALL
+
+SELECT
+  i.DRIVER_TARGET_NPS                                               AS DRIVER,
+  i.CX_TEAM_NAME,
+  i.CX_USER_TEAM_CHANNEL,
+  i.CX_USER_OFFICE,
+  i.PRO_PROCESS_NAME,
+  FORMAT_DATE('%Y-%m-%d', DATE_TRUNC(i.DATE_ID, ISOWEEK))          AS PERIODO,
+  'SEMANA'                                                           AS TIPO,
+  CAST(SUM(i.SURVEYS) AS INT64)                                     AS ENCUESTAS,
+  ROUND((SUM(i.PROMOTERS) - SUM(i.DETRACTORS)) * 100.0
+        / NULLIF(SUM(i.SURVEYS), 0), 2)                            AS NPS,
+  ROUND(AVG(i.TARGET_NPS) * 100, 2)                                AS TARGET,
+  CAST(SUM(i.DETRACTORS) AS INT64)                                  AS DETRATORES
+FROM `meli-bi-data.WHOWNER.DM_CX_NPS_CS_GOALS_MGR_AND_UP` i
+INNER JOIN (
+  SELECT DISTINCT NPS_TARGET_DRIVER
+  FROM `meli-bi-data.WHOWNER.LK_CX_NPS_CS_GOALS_DRIVER_MANAGER`
+  WHERE SR_MANAGER = 'Nathalie Valente'
+) lk ON i.DRIVER_TARGET_NPS = lk.NPS_TARGET_DRIVER
+WHERE i.DATE_ID >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 WEEK)
+  AND i.CENTER = 'BR'
+  AND i.FLAG_QUARTER_MONTH = 'WEEK'
+  AND i.SURVEYS > 0
+GROUP BY 1, 2, 3, 4, 5, 6, 7
+
+ORDER BY 1, 2, 3, 4, 5
+"""
+
 # ── QUERY 8: comentários NPS Lineal (verbatins dos últimos 14 dias) ────────────
 # ⚠️ ATENÇÃO: verifique o nome correto da coluna de verbatim no seu ambiente BQ.
 #    Candidatos comuns: VERBATIM, NPS_VERBATIM, PRO_VERBATIM, VERBATIM_TEXT
@@ -568,6 +626,31 @@ def main():
         print(f"[{datetime.now():%H:%M:%S}]   AVISO: Query Solução falhou: {e}")
         solucao_data = []
 
+    # Query Driver — DM_CX_NPS_CS_GOALS_MGR_AND_UP filtrado por SR_MANAGER
+    driver_data = []
+    try:
+        rows_driver = run_query(client, "Query Driver: por DRIVER_TARGET_NPS", QUERY_DRIVER)
+        driver_data = [
+            {
+                "driver":   r.DRIVER,
+                "team":     r.CX_TEAM_NAME,
+                "ch":       r.CX_USER_TEAM_CHANNEL,
+                "office":   r.CX_USER_OFFICE,
+                "processo": r.PRO_PROCESS_NAME,
+                "period":   str(r.PERIODO),
+                "tipo":     r.TIPO,
+                "enc":      int(r.ENCUESTAS),
+                "nps":      float(r.NPS)         if r.NPS        is not None else None,
+                "target":   float(r.TARGET)      if r.TARGET     is not None else None,
+                "det":      int(r.DETRATORES)    if r.DETRATORES is not None else 0,
+            }
+            for r in rows_driver
+        ]
+    except Exception as e:
+        print(f"[{datetime.now():%H:%M:%S}]   AVISO: Query Driver falhou: {e}")
+        print(f"                            Verifique QUERY_DRIVER e a tabela DM_CX_NPS_CS_GOALS_MGR_AND_UP.")
+        driver_data = []
+
     # Query 8 — comentários NPS Lineal
     # ⚠️ Se falhar, ajuste o nome da coluna VERBATIM em QUERY_COMMENTS
     comments_data = []
@@ -606,7 +689,8 @@ def main():
         f"window.NPS_CDU_DATA = {json.dumps(cdu_data,         ensure_ascii=False, indent=2)};\n\n"
         f"window.NPS_PROC_CDU_DATA = {json.dumps(proc_cdu_data, ensure_ascii=False, indent=2)};\n\n"
         f"window.NPS_SOLUCAO_DATA = {json.dumps(solucao_data, ensure_ascii=False, indent=2)};\n\n"
-        f"window.NPS_COMMENTS_DATA = {json.dumps(comments_data, ensure_ascii=False, indent=2)};\n"
+        f"window.NPS_COMMENTS_DATA = {json.dumps(comments_data, ensure_ascii=False, indent=2)};\n\n"
+        f"window.NPS_DRIVER_DATA = {json.dumps(driver_data, ensure_ascii=False, indent=2)};\n"
     )
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
@@ -618,7 +702,7 @@ def main():
     def git(*args):
         result = subprocess.run([GIT, *args], cwd=REPO_DIR, capture_output=True, text=True)
         if result.returncode != 0:
-            print(f"  git {' '.join(args)} → ERRO: {result.stderr.strip()}")
+            print(f"  git {' '.join(args)} -> ERRO: {result.stderr.strip()}")
         return result.returncode == 0
 
     print(f"[{datetime.now():%H:%M:%S}] Publicando no GitHub...")
