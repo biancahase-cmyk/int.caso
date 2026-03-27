@@ -769,6 +769,7 @@ function populateFilterOptions(){
 
 function fillSel(id, opts, allLabel){
   const sel = document.getElementById(id);
+  if(!sel) return; // elemento removido da UI, ignora
   const cur = sel.value;
   sel.innerHTML = `<option value="ALL">${allLabel}</option>`;
   opts.forEach(o=>{ const opt=document.createElement('option'); opt.value=o; opt.textContent=o; sel.appendChild(opt); });
