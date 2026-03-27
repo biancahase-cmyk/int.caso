@@ -1393,28 +1393,38 @@ function renderComments(comments,container,resumoHtml='') {
     <div class="scard gap-pos"><div class="scard-lbl">Promotores c/ comentário</div><div class="scard-val">${pro.length}</div></div>
   </div>
 
-  <div class="panel-title">🔴 Classificação de Problemas — Top CDUs com mais detratores</div>
+  <div class="panel-title">🔴 Compilado por Problema — Top CDUs com mais detratores</div>
   <div style="margin-bottom:20px">
     ${topCDU.map(([prob,cs],i)=>{
       const pct=det.length?Math.round((cs.length/det.length)*100):0;
-      const ex=cs.find(c=>c.comentario&&c.comentario.length>20);
       const isHot=i<3;
-      return `<div style="margin-bottom:12px;padding:12px 14px;background:${isHot?'#FFF5F5':'#FAFAFA'};border-radius:8px;border-left:3px solid ${isHot?'#F23D4F':'#E0E0E0'}">
+      // pega até 3 comentários com texto relevante, priorizando os mais longos
+      const samples=cs.filter(c=>c.comentario&&c.comentario.trim().length>15)
+        .sort((a,b)=>(b.comentario||'').length-(a.comentario||'').length).slice(0,3);
+      const commentsHtml=samples.map(c=>{
+        const txt=c.comentario.length>220?c.comentario.slice(0,218)+'…':c.comentario;
+        const proc=c.processo||(c.cdu?'':null);
+        const chain=[proc,c.cdu,c.solucao].filter(Boolean);
+        return `<div style="margin-top:8px;padding:9px 12px;background:#fff;border-radius:6px;border:1px solid #F0E0E0">
+          <div style="font-size:11px;color:#444;font-style:italic;line-height:1.6;margin-bottom:6px">"${txt}"</div>
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px">
+            ${chain.length?`<span style="font-size:10px;color:#999;margin-right:2px">📍</span>${chain.map((t,idx)=>`<span style="font-size:10px;font-weight:600;color:${idx===0?'#555':idx===1?'#DC2626':'#B45309'};background:${idx===0?'#F3F4F6':idx===1?'#FFF0F0':'#FFF8E1'};padding:2px 7px;border-radius:10px">${t}</span>${idx<chain.length-1?'<span style="font-size:9px;color:#ccc">›</span>':''}`).join('')}`:''}
+            ${c.office?`<span style="font-size:10px;color:#6B7280;background:#F3F4F6;padding:2px 7px;border-radius:10px">${c.office}</span>`:''}
+            ${c.ch?`${chTag(c.ch)}`:''}
+            ${c.data?`<span style="font-size:10px;color:#9CA3AF;margin-left:auto">${c.data}</span>`:''}
+          </div>
+        </div>`;
+      }).join('');
+      return `<div style="margin-bottom:14px;padding:12px 14px;background:${isHot?'#FFF5F5':'#FAFAFA'};border-radius:8px;border-left:3px solid ${isHot?'#F23D4F':'#E0E0E0'}">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <span style="font-size:11px;font-weight:800;color:#bbb;min-width:18px">${i+1}</span>
           <span style="font-size:12px;font-weight:700;color:${isHot?'#C0392B':'#333'};flex:1">${isHot?'🔥 ':''}${prob}</span>
           <span style="font-size:11px;font-weight:800;color:#F23D4F;white-space:nowrap">${cs.length} det · ${pct}%</span>
         </div>
-        <div style="background:#F0F0F0;border-radius:3px;height:5px;margin-bottom:${ex?'8px':'0'}">
+        <div style="background:#F0F0F0;border-radius:3px;height:4px;margin-bottom:${samples.length?'8px':'0'}">
           <div style="height:100%;width:${pct}%;background:${isHot?'#F23D4F':'#FDA5A5'};border-radius:3px"></div>
         </div>
-        ${ex?`<div style="font-size:11px;color:#666;font-style:italic;border-left:2px solid #F5B0B0;padding-left:8px;margin-top:2px">"${ex.comentario.length>160?ex.comentario.slice(0,158)+'…':ex.comentario}"
-          <div style="margin-top:3px">
-            ${ex.cdu?`<span class="ctag" style="background:#FFF0F0;color:#DC2626">${ex.cdu}</span>`:''}
-            ${ex.solucao?`<span class="ctag" style="background:#FFF8E1;color:#B45309">${ex.solucao}</span>`:''}
-            <span class="ctag">${ex.data||''}</span>
-          </div>
-        </div>`:''}
+        ${commentsHtml}
       </div>`;
     }).join('')}
   </div>
