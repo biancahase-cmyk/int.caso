@@ -759,9 +759,9 @@ function buildTgtWaterfall(level, dimKey, rows) {
 
   labels.push('NPS Atual');
   barsData.push([floor,npsAtual]);
-  colors.push('rgba(26,115,232,0.85)');
+  colors.push('rgba(0,166,80,0.9)');
   dlLabels.push(npsAtual.toFixed(1)+'%');
-  dlColors.push('#1557a0');
+  dlColors.push('#007a3a');
 
   wrap.innerHTML='<canvas id="tgt-chart-'+level+'"></canvas>';
   if(tgtCharts[level-1]){try{tgtCharts[level-1].destroy();}catch(e){}}
