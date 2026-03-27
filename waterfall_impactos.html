@@ -804,7 +804,7 @@ function buildDrillAll() {
   const team=document.getElementById('wf-team').value;
 
   // Breadcrumb
-  const parts=[{label:'Todos',active:false}];
+  const parts=[{label:TEAM_LABEL[team]||team||'Todos',active:false}];
   if(DRILL.office) parts.push({label:DRILL.office,active:false});
   if(DRILL.canal)  parts.push({label:CH_LABEL[DRILL.canal]||DRILL.canal,active:false});
   if(DRILL.processo) parts.push({label:DRILL.processo.length>22?DRILL.processo.slice(0,20)+'…':DRILL.processo,active:false});
