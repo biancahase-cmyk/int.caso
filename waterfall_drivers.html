@@ -119,8 +119,9 @@ tr:hover td{background:#FAFAFA}
 
 <!-- ABAS BUYER / SELLER -->
 <div class="view-tabs-bar">
-  <button class="view-tab-btn active" data-view="buyer" onclick="switchView('buyer')">🛍️ BUYER</button>
-  <button class="view-tab-btn" data-view="seller" onclick="switchView('seller')">🛒 SELLER</button>
+  <button class="view-tab-btn active" data-view="buyer"  onclick="switchView('buyer')">🛍️ BUYER</button>
+  <button class="view-tab-btn"        data-view="cross"  onclick="switchView('cross')">🔀 CROSS</button>
+  <button class="view-tab-btn"        data-view="seller" onclick="switchView('seller')">🛒 SELLER</button>
 </div>
 
 <div class="filter-bar" style="top:96px">
@@ -247,11 +248,11 @@ const F    = { tipo:'SEMANA', period:null };
 const DRILL = { driver:null, equipe:null, office:null, canal:null };
 let drillCharts = [null,null,null,null];
 let activeTab   = 'driver';
-let activeView  = 'buyer';   // 'buyer' | 'seller'
+let activeView  = 'buyer';   // 'buyer' | 'cross' | 'seller'
 
 const CH_LABEL = { 'MULTICANAL C2C':'C2C', 'MULTICANAL CHAT':'Chat', 'OFFLINE':'Offline' };
 
-// ── CONFIGURAÇÕES POR VIEW (Buyer / Seller) ───────────────────────────────────
+// ── CONFIGURAÇÕES POR VIEW (Buyer / Cross / Seller) ──────────────────────────
 const VIEWS = {
   buyer: {
     label: '🛍️ BUYER',
@@ -269,8 +270,8 @@ const VIEWS = {
       'PNR ME - Comprador':3.43,'PNR MP - Comprador':2.97,
     },
   },
-  seller: {
-    label: '🛒 SELLER',
+  cross: {
+    label: '🔀 CROSS',
     drivers: new Set([
       'ME Comprador','Mediaciones Comprador','Mediaciones Vendedor','ML Comprador',
       'MP Comprador','PCF Comprador: Durante la entrega','PCF Comprador: Posterior a la entrega',
@@ -287,6 +288,21 @@ const VIEWS = {
       'PDD MP,FLEX & CBT - Comprador':3.61,'PDD MP,FLEX & CBT - Vendedor':0.20,
       'PNR ME - Comprador':3.32,'PNR ME - Vendedor':0.37,
       'PNR MP - Comprador':2.87,'PNR MP - Vendedor':0.41,
+    },
+  },
+  seller: {
+    label: '🛒 SELLER',
+    drivers: new Set([
+      'Mediaciones Vendedor','PDD DS&XD - Vendedor','PDD FBM - Vendedor',
+      'PDD MP,FLEX & CBT - Vendedor','PNR ME - Vendedor','PNR MP - Vendedor',
+    ]),
+    baseline: {
+      'Mediaciones Vendedor':3.57,
+      'PDD DS&XD - Vendedor':55.68,
+      'PDD FBM - Vendedor':12.22,
+      'PDD MP,FLEX & CBT - Vendedor':5.81,
+      'PNR ME - Vendedor':10.89,
+      'PNR MP - Vendedor':11.83,
     },
   },
 };
