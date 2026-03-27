@@ -593,7 +593,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <!-- TAB: SENIORIDADE -->
   <div class="tab-content" id="tab-seniority">
     <div class="sec-title">% Outlier por Senioridade do Agente</div>
-    <div style="position:relative;height:280px;margin-bottom:16px"><canvas id="sen-chart"></canvas></div>
     <table class="sen-table" id="sen-table">
       <thead>
         <tr>
@@ -1704,68 +1703,6 @@ function buildSeniority(){
   const groups = groupBy(DATA, r=>r.seniority).sort((a,b)=>b.pct-a.pct);
   const totalOutliers = groups.reduce((s,g)=>s+g.num,0);
   const maxOut = Math.max(...groups.map(g=>g.num),1);
-
-  // gráfico de barras horizontal com linha pontilhada no target
-  if(senChart) senChart.destroy();
-  senChart = new Chart(document.getElementById('sen-chart'),{
-    type:'bar',
-    data:{
-      labels: groups.map(g=>g.key),
-      datasets:[{
-        label:'% Outlier',
-        data: groups.map(g=>Math.round(g.pct*1000)/10),
-        backgroundColor: groups.map(g=>
-          g.pct>TARGET ? 'rgba(242,61,79,.8)' : 'rgba(0,166,80,.7)'
-        ),
-        borderRadius: 4
-      }]
-    },
-    options:{
-      indexAxis:'y',
-      responsive:true, maintainAspectRatio:false,
-      plugins:{
-        legend:{display:false},
-        datalabels:{
-          display:true,
-          anchor:'end',
-          align:'right',
-          formatter: v=>v.toFixed(1)+'%',
-          font:{size:10,weight:'bold'},
-          color:'#555'
-        },
-        annotation: undefined
-      },
-      scales:{
-        x:{
-          title:{display:true,text:'% Outlier',font:{size:10}},
-          ticks:{font:{size:10},callback:v=>v+'%'},
-          grid:{color:'#F5F5F5'}
-        },
-        y:{ticks:{font:{size:11}}}
-      }
-    },
-    plugins:[{
-      id:'targetLine',
-      afterDraw(chart){
-        const {ctx,scales:{x,y}}=chart;
-        const xPos=x.getPixelForValue(TARGET*100);
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(xPos,y.top);
-        ctx.lineTo(xPos,y.bottom);
-        ctx.strokeStyle='rgba(52,131,250,.8)';
-        ctx.lineWidth=2;
-        ctx.setLineDash([5,4]);
-        ctx.stroke();
-        ctx.restore();
-        ctx.save();
-        ctx.font='bold 9px sans-serif';
-        ctx.fillStyle='#3483FA';
-        ctx.fillText(`Target ${fmtPct(TARGET)}`,xPos+4,y.top+12);
-        ctx.restore();
-      }
-    }]
-  });
 
   // tabela limpa
   const tbody = document.getElementById('sen-tbody');
