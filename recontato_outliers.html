@@ -432,6 +432,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <button class="tab-btn" onclick="switchTab('subcdu')" id="tab-btn-subcdu">🔖 Sub-CDU</button>
     <button class="tab-btn" onclick="switchTab('solution')" id="tab-btn-solution">💡 Solução</button>
     <button class="tab-btn" onclick="switchTab('seniority')" id="tab-btn-seniority">🎓 Senioridade</button>
+    <button class="tab-btn" onclick="switchTab('reps')" id="tab-btn-reps">👥 Reps Outliers</button>
     <button class="tab-btn" onclick="switchTab('concentration')" id="tab-btn-concentration">🔎 Concentração</button>
   </div>
 
@@ -611,6 +612,34 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </table>
   </div>
 
+  <!-- TAB: REPS OUTLIERS -->
+  <div class="tab-content" id="tab-reps">
+    <div class="sec-title">Reps Outliers</div>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+      <input type="text" id="reps-search" class="sfsel" placeholder="Buscar LDAP..." oninput="buildReps()" style="min-width:180px">
+      <select class="sfsel" id="reps-sort" onchange="buildReps()">
+        <option value="freq_desc">Mais aparições primeiro</option>
+        <option value="freq_asc">Menos aparições primeiro</option>
+        <option value="ldap_asc">LDAP A→Z</option>
+      </select>
+      <span id="reps-count" style="font-size:11px;color:#888;margin-left:4px"></span>
+    </div>
+    <table class="sen-table" id="reps-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>LDAP</th>
+          <th>Equipe</th>
+          <th>Office</th>
+          <th class="tr">Aparições como Outlier</th>
+        </tr>
+      </thead>
+      <tbody id="reps-tbody">
+        <tr><td colspan="5" class="empty-msg">Carregue os dados.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
   <!-- TAB: CONCENTRAÇÃO -->
   <div class="tab-content" id="tab-concentration">
     <div class="sec-title">Distribuição de outliers — Quem concentra o problema?</div>
@@ -748,6 +777,7 @@ function processImport(parsed){
     solutions:   Array.isArray(r.SOLUTION_NAME_LIST) ? r.SOLUTION_NAME_LIST : [],
     cdus:        Array.isArray(r.CDU_LIST)            ? r.CDU_LIST            : [],
     subcdus:     Array.isArray(r.SUB_CDU_LIST)        ? r.SUB_CDU_LIST        : [],
+    ldaps:       Array.isArray(r.USER_LDAP_LIST)      ? r.USER_LDAP_LIST      : [],
   };});
   populateFilterOptions();
   render();
@@ -808,6 +838,7 @@ function render(){
   buildSubCDU();
   buildSolution();
   buildSeniority();
+  buildReps();
   buildConcentration();
   updateTopbar();
 }
@@ -1726,6 +1757,48 @@ function buildSeniority(){
       </td>
     </tr>`;
   }).join('');
+}
+
+// ── REPS OUTLIERS ─────────────────────────────────────────────────────────────
+function buildReps(){
+  const tbody = document.getElementById('reps-tbody');
+  const countEl = document.getElementById('reps-count');
+  if(!tbody) return;
+  if(!DATA.length){ tbody.innerHTML='<tr><td colspan="5" class="empty-msg">Sem dados.</td></tr>'; return; }
+
+  const search = (document.getElementById('reps-search')?.value || '').toLowerCase();
+  const sort   = document.getElementById('reps-sort')?.value || 'freq_desc';
+
+  // agrega por LDAP: conta em quantas linhas aparece + registra equipe e office
+  const map = {};
+  DATA.forEach(r=>{
+    r.ldaps.forEach(ldap=>{
+      if(!map[ldap]) map[ldap]={ldap, team:r.team, office:r.office, freq:0};
+      map[ldap].freq++;
+    });
+  });
+
+  let reps = Object.values(map);
+  if(search) reps = reps.filter(r=>r.ldap.toLowerCase().includes(search));
+
+  if(sort==='freq_desc') reps.sort((a,b)=>b.freq-a.freq);
+  else if(sort==='freq_asc') reps.sort((a,b)=>a.freq-b.freq);
+  else reps.sort((a,b)=>a.ldap.localeCompare(b.ldap));
+
+  if(countEl) countEl.textContent = `${reps.length} rep${reps.length!==1?'s':''} encontrado${reps.length!==1?'s':''}`;
+
+  if(!reps.length){
+    tbody.innerHTML='<tr><td colspan="5" class="empty-msg">Nenhum rep encontrado.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = reps.map((r,i)=>`<tr>
+    <td>${i+1}</td>
+    <td style="font-family:monospace;font-size:12px">${r.ldap}</td>
+    <td>${r.team}</td>
+    <td>${r.office}</td>
+    <td class="tr"><strong>${r.freq}</strong></td>
+  </tr>`).join('');
 }
 
 // ── CONCENTRAÇÃO (ajuste #10: sem SR Manager) ─────────────────────────────────
