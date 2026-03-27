@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>% Outliers em Recontato — MED</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script src="data_recontato.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#EBEBEB;color:#333;font-size:13px}
+
+.topbar{background:#FFE600;height:48px;display:flex;align-items:center;padding:0 24px;gap:16px;position:sticky;top:0;z-index:200;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+.topbar-logo{font-size:17px;font-weight:800;color:#333;letter-spacing:-.5px}
+.topbar-sep{width:1px;height:22px;background:rgba(0,0,0,.15)}
+.topbar-title{font-size:12px;font-weight:700;color:#555}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.topbar-period{font-size:11px;background:rgba(0,0,0,.1);padding:3px 10px;border-radius:20px;color:#444;font-weight:600}
+.topbar-link{font-size:10px;color:#555;font-weight:600;text-decoration:none;padding:3px 8px;background:rgba(0,0,0,.08);border-radius:4px}
+
+.filter-bar{background:#fff;border-bottom:2px solid #FFE600;padding:10px 24px;display:flex;gap:14px;flex-wrap:wrap;align-items:center;position:sticky;top:48px;z-index:199;box-shadow:0 2px 6px rgba(0,0,0,.08)}
+.fg{display:flex;align-items:center;gap:6px}
+.fg label{font-size:10px;font-weight:700;color:#777;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
+.fsel{padding:5px 10px;border:1.5px solid #E0E0E0;border-radius:6px;font-size:11px;color:#333;background:#fff;cursor:pointer;outline:none;font-weight:600}
+.fsel:focus{border-color:#3483FA}
+
+.page{max-width:1160px;margin:0 auto;padding:20px 16px}
+
+/* KPI CARDS */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:18px}
+.kcard{background:#fff;border-radius:10px;padding:14px 18px;border-left:4px solid #ccc;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.kcard-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#999;margin-bottom:6px}
+.kcard-val{font-size:28px;font-weight:800;line-height:1}
+.kcard-sub{font-size:10px;color:#aaa;margin-top:4px}
+.kcard-delta{font-size:11px;font-weight:700;margin-top:4px}
+.kcard.danger{border-left-color:#F23D4F}.kcard.danger .kcard-val{color:#F23D4F}
+.kcard.warn{border-left-color:#FF7733}.kcard.warn .kcard-val{color:#FF7733}
+.kcard.ok{border-left-color:#00A650}.kcard.ok .kcard-val{color:#00A650}
+.kcard.blue{border-left-color:#3483FA}.kcard.blue .kcard-val{color:#3483FA}
+.kcard.purple{border-left-color:#8B5CF6}.kcard.purple .kcard-val{color:#8B5CF6}
+.delta-up{color:#F23D4F}.delta-down{color:#00A650}.delta-neu{color:#888}
+
+/* PANEL */
+.panel{background:#fff;border-radius:10px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden}
+.panel-header{padding:16px 20px 0;display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+.panel-title{font-size:14px;font-weight:800;color:#222}
+.panel-sub{font-size:11px;color:#888;margin-top:3px}
+.panel-body{padding:6px 20px 20px}
+.panel-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ptbtn{font-size:10px;font-weight:700;padding:4px 10px;border:1.5px solid #E0E0E0;border-radius:6px;background:#fff;cursor:pointer;color:#666;transition:all .15s}
+.ptbtn.active{background:#222;border-color:#222;color:#FFE600}
+.ptbtn-blue.active{background:#3483FA;border-color:#3483FA;color:#fff}
+.sfsel{padding:4px 9px;border:1.5px solid #E0E0E0;border-radius:6px;font-size:11px;color:#333;background:#fff;cursor:pointer;outline:none;font-weight:600}
+.sfsel:focus{border-color:#3483FA}
+
+/* 2-COL GRID */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px}
+
+/* HEATMAP */
+.heatmap-wrap{overflow-x:auto}
+.heatmap-table{border-collapse:collapse;width:100%;font-size:11px}
+.heatmap-table th{padding:6px 10px;background:#FAFAFA;font-size:9px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.3px;border-bottom:2px solid #F0F0F0;white-space:nowrap;text-align:center}
+.heatmap-table th.row-hdr{text-align:left}
+.heatmap-table td{padding:5px 6px;text-align:center;border:1px solid #F5F5F5;font-weight:700;font-size:11px;border-radius:0;cursor:default;transition:opacity .15s}
+.heatmap-table td.row-label{text-align:left;font-weight:600;color:#555;padding:5px 10px;background:#FAFAFA;font-size:11px;white-space:nowrap}
+.heatmap-table tr:hover td{opacity:.85}
+.heat-0{background:#E6F9F1;color:#00A650}
+.heat-1{background:#FFF9C4;color:#856404}
+.heat-2{background:#FFE0C0;color:#C05000}
+.heat-3{background:#FEECEF;color:#C0192A}
+.heat-4{background:#F23D4F;color:#fff}
+.hm-legend{display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.hml-item{display:flex;align-items:center;gap:4px;font-size:10px;color:#666}
+.hml-box{width:14px;height:14px;border-radius:3px}
+
+/* PARETO */
+.pareto-wrap{position:relative;height:320px}
+
+/* SCATTER */
+.scatter-wrap{position:relative;height:340px}
+
+/* MANAGER RANKING */
+.manager-list{display:flex;flex-direction:column;gap:6px}
+.mgr-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;background:#FAFAFA;cursor:pointer;transition:background .15s}
+.mgr-row:hover{background:#F0F0F0}
+.mgr-rank{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0}
+.mgr-rank.r1{background:#FEECEF;color:#F23D4F}
+.mgr-rank.r2{background:#FFF3E0;color:#E65100}
+.mgr-rank.r3{background:#FFF9C4;color:#856404}
+.mgr-rank.rn{background:#F5F5F5;color:#999}
+.mgr-rank.rok{background:#E6F9F1;color:#00A650}
+.mgr-name{flex:1;font-size:12px;font-weight:600;color:#333}
+.mgr-team{font-size:10px;color:#aaa;display:block}
+.mgr-bar-wrap{width:120px;background:#F0F0F0;border-radius:4px;height:8px;overflow:hidden}
+.mgr-bar{height:100%;border-radius:4px;transition:width .5s}
+.mgr-val{font-size:12px;font-weight:800;min-width:44px;text-align:right}
+.mgr-vol{font-size:10px;color:#aaa;min-width:52px;text-align:right}
+.val-danger{color:#F23D4F}.val-warn{color:#FF7733}.val-ok{color:#00A650}
+.bar-danger{background:linear-gradient(90deg,#F23D4F,#FF6B6B)}
+.bar-warn{background:linear-gradient(90deg,#FF7733,#FFAA66)}
+.bar-ok{background:linear-gradient(90deg,#00A650,#34D399)}
+
+/* MOM TABLE */
+.mom-table{border-collapse:collapse;width:100%}
+.mom-table th{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:#999;padding:6px 10px;border-bottom:2px solid #F0F0F0;text-align:left;white-space:nowrap}
+.mom-table td{padding:7px 10px;border-bottom:1px solid #F7F7F7;font-size:11px;vertical-align:middle}
+.mom-table tr:hover td{background:#FAFAFA}
+.mom-table td.tr{text-align:right}
+.trend-pill{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px}
+.trend-up{background:#FEECEF;color:#F23D4F}
+.trend-dn{background:#E6F9F1;color:#00A650}
+.trend-neu{background:#F5F5F5;color:#888}
+.sparkline-wrap{display:inline-block;vertical-align:middle}
+
+/* CDU MATRIX */
+.cdu-matrix-wrap{overflow-x:auto}
+.cdu-table{border-collapse:collapse;width:100%}
+.cdu-table th{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:#999;padding:6px 10px;border-bottom:2px solid #F0F0F0;text-align:left}
+.cdu-table td{padding:7px 10px;border-bottom:1px solid #F7F7F7;font-size:11px;vertical-align:middle}
+.cdu-table tr:hover td{background:#FAFAFA}
+.cdu-table td.tr{text-align:right}
+.badge{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:3px;text-transform:uppercase}
+.bdg-cdu{background:#EBF3FF;color:#1D4ED8}
+.bdg-sub{background:#F3E8FF;color:#6D28D9}
+.bdg-off{background:#FFF0F0;color:#DC2626}
+
+/* CONCENTRATION / PARETO BAR */
+.conc-row{display:flex;align-items:center;gap:10px;margin-bottom:5px}
+.conc-label{font-size:11px;font-weight:600;color:#444;min-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.conc-bar-wrap{flex:1;background:#F0F0F0;border-radius:4px;height:14px;overflow:hidden;position:relative}
+.conc-bar-num{position:absolute;height:100%;border-radius:4px;background:linear-gradient(90deg,#3483FA,#60A5FA);transition:width .5s}
+.conc-bar-out{position:absolute;height:100%;border-radius:4px;background:linear-gradient(90deg,#F23D4F,#FF6B6B);opacity:.7}
+.conc-val{font-size:11px;font-weight:800;min-width:44px;text-align:right;color:#F23D4F}
+.conc-pct-num{font-size:10px;color:#aaa;min-width:36px;text-align:right}
+
+/* SENIORITY COMPARE */
+.sen-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:14px}
+.sen-tile{border-radius:8px;padding:14px;text-align:center}
+.sen-tile .st-name{font-size:11px;font-weight:700;color:#555;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sen-tile .st-val{font-size:26px;font-weight:800;line-height:1}
+.sen-tile .st-sub{font-size:10px;color:#aaa;margin-top:4px}
+.sen-tile.st-danger{background:#FFF5F5;border:1.5px solid #FEECEF}
+.sen-tile.st-danger .st-val{color:#F23D4F}
+.sen-tile.st-warn{background:#FFFBEB;border:1.5px solid #FEF3C7}
+.sen-tile.st-warn .st-val{color:#B45309}
+.sen-tile.st-ok{background:#E6F9F1;border:1.5px solid #BBF7D0}
+.sen-tile.st-ok .st-val{color:#00A650}
+
+/* TABS */
+.tabs-nav{background:#fff;border-radius:10px 10px 0 0;border-bottom:2px solid #E8E8E8;padding:0 20px;display:flex;overflow-x:auto;box-shadow:0 1px 3px rgba(0,0,0,.05);margin-bottom:0}
+.tab-btn{padding:11px 14px;border:none;background:none;font-size:11px;font-weight:700;color:#888;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap}
+.tab-btn:hover{color:#3483FA}
+.tab-btn.active{color:#3483FA;border-bottom-color:#3483FA}
+.tab-content{display:none;background:#fff;border-radius:0 0 10px 10px;padding:18px 20px 20px;box-shadow:0 1px 3px rgba(0,0,0,.05);margin-bottom:16px}
+.tab-content.active{display:block}
+
+/* IMPORT */
+.import-box{background:#F8F8F8;border:1.5px dashed #D0D0D0;border-radius:10px;padding:20px 24px;text-align:center;margin-bottom:16px}
+.import-box h3{font-size:14px;font-weight:700;color:#333;margin-bottom:6px}
+.import-box p{font-size:12px;color:#888;margin-bottom:14px;line-height:1.6}
+.sql-block{background:#1E1E1E;color:#D4D4D4;border-radius:8px;padding:14px 16px;text-align:left;font-family:monospace;font-size:10px;white-space:pre-wrap;overflow-x:auto;line-height:1.7;margin-bottom:14px;max-height:180px;overflow-y:auto}
+textarea.import-ta{width:100%;height:110px;border:1.5px solid #E0E0E0;border-radius:8px;padding:10px 12px;font-size:11px;font-family:monospace;resize:vertical;outline:none;margin-top:6px}
+.btn-primary{background:#3483FA;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:12px;font-weight:700;cursor:pointer;margin-top:8px}
+.btn-primary:hover{background:#2968C8}
+.empty-msg{font-size:12px;color:#aaa;text-align:center;padding:30px;font-style:italic}
+
+/* DIVIDER */
+.sec-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#888;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.sec-title::after{content:'';flex:1;height:1px;background:#F0F0F0}
+
+/* TOOLTIP-LIKE INFO */
+.info-tag{display:inline-block;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;text-transform:uppercase;margin-left:4px}
+.info-target{background:#FFF9C4;color:#856404}
+.info-above{background:#FEECEF;color:#C0192A}
+.info-below{background:#E6F9F1;color:#00A650}
+
+@media(max-width:800px){
+  .kpi-row{grid-template-columns:1fr 1fr}
+  .two-col{grid-template-columns:1fr}
+  .three-col{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">mercadolibre</div>
+  <div class="topbar-sep"></div>
+  <div class="topbar-title">% Outliers em Recontato — MED</div>
+  <div class="topbar-right">
+    <div class="topbar-period" id="topbar-period">—</div>
+    <a class="topbar-link" href="index.html">← Voltar</a>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <div class="fg">
+    <label>Equipe</label>
+    <select class="fsel" id="f-team" onchange="render()">
+      <option value="ALL">Todas</option>
+    </select>
+  </div>
+  <div class="fg">
+    <label>Office</label>
+    <select class="fsel" id="f-office" onchange="render()">
+      <option value="ALL">Todos</option>
+    </select>
+  </div>
+  <div class="fg">
+    <label>Canal</label>
+    <select class="fsel" id="f-canal" onchange="render()">
+      <option value="ALL">Todos</option>
+    </select>
+  </div>
+  <div class="fg">
+    <label>SR Manager</label>
+    <select class="fsel" id="f-srmanager" onchange="render()">
+      <option value="ALL">Todos</option>
+    </select>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- KPIs -->
+  <div class="kpi-row" id="kpi-row">
+    <div class="kcard blue"><div class="kcard-lbl">Total de Casos</div><div class="kcard-val" id="kpi-total">—</div><div class="kcard-sub">denominador</div></div>
+    <div class="kcard danger"><div class="kcard-lbl">Outliers</div><div class="kcard-val" id="kpi-outliers">—</div><div class="kcard-sub">acima do target</div></div>
+    <div class="kcard warn"><div class="kcard-lbl">% Outliers</div><div class="kcard-val" id="kpi-pct">—</div><div class="kcard-sub">KPI principal</div><div class="kcard-delta" id="kpi-delta">—</div></div>
+    <div class="kcard purple"><div class="kcard-lbl">Equipes Acima Target</div><div class="kcard-val" id="kpi-teams-above">—</div><div class="kcard-sub">de <span id="kpi-teams-total">—</span> equipes</div></div>
+    <div class="kcard ok"><div class="kcard-lbl">Maior Concentração</div><div class="kcard-val" id="kpi-top-office">—</div><div class="kcard-sub" id="kpi-top-office-pct">office com mais outliers</div></div>
+  </div>
+
+  <!-- MAPA DE CALOR: Office × Equipe -->
+  <div class="panel">
+    <div class="panel-header">
+      <div>
+        <div class="panel-title">🔥 Mapa de Calor — % Outliers por Office × Equipe</div>
+        <div class="panel-sub">Intensidade da cor = taxa de outlier. Clique em uma célula para filtrar.</div>
+      </div>
+      <div class="panel-toolbar">
+        <span style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase">Mostrar</span>
+        <button class="ptbtn active" id="hm-btn-pct" onclick="setHmMode('pct')">% Outlier</button>
+        <button class="ptbtn" id="hm-btn-vol" onclick="setHmMode('vol')">Volume</button>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="heatmap-wrap" id="heatmap-wrap">
+        <div class="empty-msg">Carregue os dados para visualizar o mapa de calor.</div>
+      </div>
+      <div class="hm-legend" id="hm-legend" style="display:none">
+        <span style="font-size:10px;font-weight:700;color:#666">Legenda:</span>
+        <span class="hml-item"><span class="hml-box heat-0"></span>&lt; 10%</span>
+        <span class="hml-item"><span class="hml-box heat-1"></span>10–20%</span>
+        <span class="hml-item"><span class="hml-box heat-2"></span>20–30%</span>
+        <span class="hml-item"><span class="hml-box heat-3"></span>30–40%</span>
+        <span class="hml-item"><span class="hml-box heat-4"></span>&gt; 40%</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="two-col">
+
+    <!-- PARETO DE PROCESSOS -->
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">📊 Pareto de Concentração de Outliers</div>
+          <div class="panel-sub">Quais processos concentram mais casos fora do target?</div>
+        </div>
+        <div class="panel-toolbar">
+          <select class="sfsel" id="pareto-dim" onchange="buildPareto()">
+            <option value="process">Processo</option>
+            <option value="cdu">CDU</option>
+            <option value="solution">Solução</option>
+          </select>
+          <select class="sfsel" id="pareto-metric" onchange="buildPareto()">
+            <option value="outliers">Vol. Outliers</option>
+            <option value="pct">% Outlier</option>
+          </select>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="pareto-wrap"><canvas id="pareto-chart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- DISPERSÃO: Volume × % Outlier -->
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">🫧 Dispersão — Volume vs % Outlier por Equipe</div>
+          <div class="panel-sub">Bolhas maiores = mais casos. Alto volume + alto % = prioridade máxima.</div>
+        </div>
+        <div class="panel-toolbar">
+          <select class="sfsel" id="scatter-dim" onchange="buildScatter()">
+            <option value="team">Por Equipe</option>
+            <option value="office">Por Office</option>
+            <option value="manager">Por Manager</option>
+          </select>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="scatter-wrap"><canvas id="scatter-chart"></canvas></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- TABS PRINCIPAIS -->
+  <div class="tabs-nav">
+    <button class="tab-btn active" onclick="switchTab('managers')" id="tab-btn-managers">👤 Ranking Managers</button>
+    <button class="tab-btn" onclick="switchTab('mom')" id="tab-btn-mom">📅 MoM por Equipe</button>
+    <button class="tab-btn" onclick="switchTab('cdu')" id="tab-btn-cdu">🎯 CDU / Sub-CDU</button>
+    <button class="tab-btn" onclick="switchTab('seniority')" id="tab-btn-seniority">🎓 Senioridade</button>
+    <button class="tab-btn" onclick="switchTab('concentration')" id="tab-btn-concentration">🔎 Concentração</button>
+    <button class="tab-btn" onclick="switchTab('import')" id="tab-btn-import">⬆️ Importar Dados</button>
+  </div>
+
+  <!-- TAB: RANKING MANAGERS -->
+  <div class="tab-content active" id="tab-managers">
+    <div class="sec-title">Managers ordenados por % de outlier (maior → menor)</div>
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+      <select class="sfsel" id="mgr-group" onchange="buildManagers()">
+        <option value="manager">Manager</option>
+        <option value="sr_manager">SR Manager</option>
+        <option value="team">Equipe</option>
+        <option value="office">Office</option>
+      </select>
+      <select class="sfsel" id="mgr-sort" onchange="buildManagers()">
+        <option value="pct">Ordenar por % Outlier</option>
+        <option value="vol">Ordenar por Volume</option>
+        <option value="outliers">Ordenar por Outliers</option>
+      </select>
+      <label style="font-size:11px;color:#888;display:flex;align-items:center;gap:5px">
+        <input type="checkbox" id="mgr-only-above" onchange="buildManagers()">
+        Somente acima do target
+      </label>
+    </div>
+    <div class="manager-list" id="manager-list">
+      <div class="empty-msg">Carregue os dados para ver o ranking.</div>
+    </div>
+  </div>
+
+  <!-- TAB: MoM -->
+  <div class="tab-content" id="tab-mom">
+    <div class="sec-title">Variação mês a mês por equipe (mês atual vs. anterior)</div>
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <select class="sfsel" id="mom-group" onchange="buildMoM()">
+        <option value="team">Por Equipe</option>
+        <option value="office">Por Office</option>
+        <option value="manager">Por Manager</option>
+      </select>
+      <select class="sfsel" id="mom-sort" onchange="buildMoM()">
+        <option value="delta_desc">Maior piora primeiro</option>
+        <option value="delta_asc">Maior melhora primeiro</option>
+        <option value="pct_desc">Maior % atual</option>
+      </select>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="mom-table" id="mom-table">
+        <thead>
+          <tr>
+            <th>Segmento</th>
+            <th class="tr">Casos (Atual)</th>
+            <th class="tr">Outliers (Atual)</th>
+            <th class="tr">% Outlier Atual</th>
+            <th class="tr">% Outlier M-1</th>
+            <th class="tr">Variação</th>
+            <th class="tr">Tendência</th>
+          </tr>
+        </thead>
+        <tbody id="mom-tbody">
+          <tr><td colspan="7" class="empty-msg">Carregue os dados.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: CDU -->
+  <div class="tab-content" id="tab-cdu">
+    <div class="sec-title">Processos e CDUs com maior taxa de recontato fora do target</div>
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <select class="sfsel" id="cdu-level" onchange="buildCDU()">
+        <option value="cdu">CDU</option>
+        <option value="subcdu">Sub-CDU</option>
+        <option value="process">Processo</option>
+        <option value="solution">Solução</option>
+      </select>
+      <select class="sfsel" id="cdu-sort" onchange="buildCDU()">
+        <option value="outliers">Vol. Outliers ↓</option>
+        <option value="pct">% Outlier ↓</option>
+        <option value="total">Volume Total ↓</option>
+      </select>
+      <input type="text" id="cdu-search" placeholder="Buscar..." style="padding:4px 9px;border:1.5px solid #E0E0E0;border-radius:6px;font-size:11px;outline:none;min-width:150px" oninput="buildCDU()">
+    </div>
+    <div style="overflow-x:auto">
+      <table class="cdu-table" id="cdu-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Nome</th>
+            <th>Tipo</th>
+            <th class="tr">Cases Total</th>
+            <th class="tr">Outliers</th>
+            <th class="tr">% Outlier</th>
+            <th class="tr">% do Total Outliers</th>
+            <th class="tr">Pareto Acum.</th>
+          </tr>
+        </thead>
+        <tbody id="cdu-tbody">
+          <tr><td colspan="8" class="empty-msg">Carregue os dados.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: SENIORIDADE -->
+  <div class="tab-content" id="tab-seniority">
+    <div class="sec-title">% Outlier por faixa de senioridade do agente</div>
+    <div class="sen-grid" id="sen-grid">
+      <div class="empty-msg" style="grid-column:1/-1">Carregue os dados.</div>
+    </div>
+    <div style="position:relative;height:280px;margin-top:8px"><canvas id="sen-chart"></canvas></div>
+  </div>
+
+  <!-- TAB: CONCENTRAÇÃO -->
+  <div class="tab-content" id="tab-concentration">
+    <div class="sec-title">Distribuição de outliers — Quem concentra o problema?</div>
+    <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+      <select class="sfsel" id="conc-dim" onchange="buildConcentration()">
+        <option value="team">Por Equipe</option>
+        <option value="office">Por Office</option>
+        <option value="manager">Por Manager</option>
+        <option value="process">Por Processo</option>
+      </select>
+      <span style="font-size:11px;color:#888;align-self:center">Barras azuis = casos totais · Barras vermelhas = outliers</span>
+    </div>
+    <div id="conc-list">
+      <div class="empty-msg">Carregue os dados.</div>
+    </div>
+  </div>
+
+  <!-- TAB: IMPORT -->
+  <div class="tab-content" id="tab-import">
+    <div class="import-box">
+      <h3>Importar resultado da query BigQuery</h3>
+      <p>Execute a query abaixo no BigQuery, exporte como JSON (array de objetos) e cole aqui.<br>Cada linha deve conter os campos: <code>DATE_ID, CX_TEAM_NAME, USER_OFFICE, CANAL, CS_MANAGER, CS_SR_MANAGER, USER_AGE_SUBGROUP_NAME, NUMERATOR, DENOMINATOR, PROCESS_NAME_LIST, SOLUTION_NAME_LIST, CDU_LIST, SUB_CDU_LIST</code></p>
+      <div class="sql-block" id="sql-display">-- A query utilizada para geração deste relatório está disponível na documentação.</div>
+      <textarea class="import-ta" id="json-input" placeholder='[{"DATE_ID":"2025-02-01","CX_TEAM_NAME":"BR_Buyers_Pre_Entrega","USER_OFFICE":"TP","CANAL":"OFFLINE","CS_MANAGER":"fulano","CS_SR_MANAGER":"ciclano","USER_AGE_SUBGROUP_NAME":"Expert","NUMERATOR":50,"DENOMINATOR":200,"PROCESS_NAME_LIST":["P1","P2"],"CDU_LIST":["CDU A"],"SUB_CDU_LIST":["Sub A"],"SOLUTION_NAME_LIST":["Sol X"]}]'></textarea>
+      <br>
+      <button class="btn-primary" onclick="importData()">Carregar Dados</button>
+      <button style="margin-left:8px;padding:8px 16px;border:1.5px solid #E0E0E0;border-radius:8px;background:#fff;font-size:12px;font-weight:700;cursor:pointer;color:#666" onclick="loadSampleData()">Carregar Dados de Exemplo</button>
+    </div>
+    <div id="import-status" style="font-size:12px;color:#00A650;font-weight:600;margin-top:4px;display:none"></div>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+Chart.register(ChartDataLabels);
+Chart.defaults.set('plugins.datalabels',{display:false});
+
+// ── ESTADO ──────────────────────────────────────────────────────────────────
+let RAW  = [];        // dados brutos importados
+let DATA = [];        // dados filtrados
+let hmMode = 'pct';
+let paretoChart = null, scatterChart = null, senChart = null;
+const MONTH_LABELS = {
+  '01':'Jan','02':'Fev','03':'Mar','04':'Abr','05':'Mai','06':'Jun',
+  '07':'Jul','08':'Ago','09':'Set','10':'Out','11':'Nov','12':'Dez'
+};
+
+// ── FILTROS ──────────────────────────────────────────────────────────────────
+function getFilters(){
+  return {
+    team:     document.getElementById('f-team').value,
+    office:   document.getElementById('f-office').value,
+    canal:    document.getElementById('f-canal').value,
+    srmanager:document.getElementById('f-srmanager').value
+  };
+}
+
+function applyFilters(){
+  const f = getFilters();
+  DATA = RAW.filter(r=>{
+    if(f.team     !=='ALL' && r.team     !== f.team)      return false;
+    if(f.office   !=='ALL' && r.office   !== f.office)    return false;
+    if(f.canal    !=='ALL' && r.canal    !== f.canal)      return false;
+    if(f.srmanager!=='ALL' && r.srmanager!== f.srmanager)  return false;
+    return true;
+  });
+}
+
+// ── IMPORT ───────────────────────────────────────────────────────────────────
+function importData(){
+  const raw = document.getElementById('json-input').value.trim();
+  if(!raw){ alert('Cole o JSON exportado do BigQuery.'); return; }
+  let parsed;
+  try{ parsed = JSON.parse(raw); }
+  catch(e){ alert('JSON inválido: '+e.message); return; }
+  processImport(parsed);
+}
+
+function processImport(parsed){
+  RAW = parsed.map(r=>({
+    date:     r.DATE_ID ? r.DATE_ID.substring(0,7) : '????-??',
+    team:     r.CX_TEAM_NAME || '(sem equipe)',
+    office:   r.USER_OFFICE  || '(sem office)',
+    canal:    r.CANAL        || '(sem canal)',
+    manager:  r.CS_MANAGER   || '(sem manager)',
+    srmanager:r.CS_SR_MANAGER|| '(sem SR manager)',
+    seniority:r.USER_AGE_SUBGROUP_NAME || '(sem dado)',
+    num:      Number(r.NUMERATOR   ||0),
+    den:      Number(r.DENOMINATOR ||0),
+    processes:Array.isArray(r.PROCESS_NAME_LIST)  ? r.PROCESS_NAME_LIST  : [],
+    solutions:Array.isArray(r.SOLUTION_NAME_LIST) ? r.SOLUTION_NAME_LIST : [],
+    cdus:     Array.isArray(r.CDU_LIST)            ? r.CDU_LIST            : [],
+    subcdus:  Array.isArray(r.SUB_CDU_LIST)        ? r.SUB_CDU_LIST        : [],
+  }));
+  populateFilterOptions();
+  render();
+  const st = document.getElementById('import-status');
+  st.style.display='block';
+  st.textContent = `✓ ${RAW.length} linhas carregadas com sucesso.`;
+}
+
+function populateFilterOptions(){
+  const teams      = [...new Set(RAW.map(r=>r.team))].sort();
+  const offices    = [...new Set(RAW.map(r=>r.office))].sort();
+  const canais     = [...new Set(RAW.map(r=>r.canal))].sort();
+  const srmanagers = [...new Set(RAW.map(r=>r.srmanager))].sort();
+  fillSel('f-team',     teams,     'Todas');
+  fillSel('f-office',   offices,   'Todos');
+  fillSel('f-canal',    canais,    'Todos');
+  fillSel('f-srmanager',srmanagers,'Todos');
+}
+
+function fillSel(id, opts, allLabel){
+  const sel = document.getElementById(id);
+  const cur = sel.value;
+  sel.innerHTML = `<option value="ALL">${allLabel}</option>`;
+  opts.forEach(o=>{ const opt=document.createElement('option'); opt.value=o; opt.textContent=o; sel.appendChild(opt); });
+  if(opts.includes(cur)) sel.value=cur;
+}
+
+// ── AGGREGATION HELPER ───────────────────────────────────────────────────────
+function groupBy(rows, keyFn){
+  const map = {};
+  rows.forEach(r=>{
+    const k = keyFn(r);
+    if(!map[k]) map[k]={key:k,num:0,den:0,processes:new Set(),cdus:new Set(),subcdus:new Set(),solutions:new Set()};
+    map[k].num += r.num;
+    map[k].den += r.den;
+    r.processes.forEach(p=>map[k].processes.add(p));
+    r.cdus.forEach(p=>map[k].cdus.add(p));
+    r.subcdus.forEach(p=>map[k].subcdus.add(p));
+    r.solutions.forEach(p=>map[k].solutions.add(p));
+  });
+  return Object.values(map).map(g=>({
+    ...g, pct: g.den>0 ? g.num/g.den : 0
+  }));
+}
+
+// ── RENDER PRINCIPAL ─────────────────────────────────────────────────────────
+function render(){
+  applyFilters();
+  if(!DATA.length) return;
+  buildKPIs();
+  buildHeatmap();
+  buildPareto();
+  buildScatter();
+  buildManagers();
+  buildMoM();
+  buildCDU();
+  buildSeniority();
+  buildConcentration();
+  updateTopbar();
+}
+
+function updateTopbar(){
+  const dates = [...new Set(RAW.map(r=>r.date))].sort();
+  if(dates.length){
+    const [y,m] = dates[dates.length-1].split('-');
+    document.getElementById('topbar-period').textContent = (MONTH_LABELS[m]||m)+'/'+y;
+  }
+}
+
+// ── KPIs ─────────────────────────────────────────────────────────────────────
+function buildKPIs(){
+  const totalNum = DATA.reduce((s,r)=>s+r.num,0);
+  const totalDen = DATA.reduce((s,r)=>s+r.den,0);
+  const pct = totalDen>0 ? totalNum/totalDen : 0;
+
+  // mês anterior (se existir)
+  const dates = [...new Set(RAW.map(r=>r.date))].sort();
+  let deltaHtml = '<span class="delta-neu">sem dado anterior</span>';
+  if(dates.length>=2){
+    const prevDate = dates[dates.length-2];
+    const prevRows = RAW.filter(r=>r.date===prevDate);
+    const pn = prevRows.reduce((s,r)=>s+r.num,0);
+    const pd = prevRows.reduce((s,r)=>s+r.den,0);
+    const prevPct = pd>0 ? pn/pd : 0;
+    const delta = pct - prevPct;
+    const sign = delta>0?'▲':'▼';
+    const cls  = delta>0?'delta-up':'delta-down';
+    deltaHtml = `<span class="${cls}">${sign} ${(Math.abs(delta)*100).toFixed(1)}pp vs. mês anterior</span>`;
+  }
+
+  // teams above
+  const byTeam = groupBy(DATA, r=>r.team);
+  // We don't have a single target value in data. Use 20% as reference threshold.
+  const TARGET_REF = 0.20;
+  const teamsAbove = byTeam.filter(t=>t.pct>TARGET_REF).length;
+
+  // top office by outlier volume
+  const byOffice = groupBy(DATA, r=>r.office).sort((a,b)=>b.num-a.num);
+
+  document.getElementById('kpi-total').textContent     = fmtNum(totalDen);
+  document.getElementById('kpi-outliers').textContent  = fmtNum(totalNum);
+  document.getElementById('kpi-pct').textContent       = fmtPct(pct);
+  document.getElementById('kpi-delta').innerHTML       = deltaHtml;
+  document.getElementById('kpi-teams-above').textContent = teamsAbove;
+  document.getElementById('kpi-teams-total').textContent = byTeam.length;
+  if(byOffice.length){
+    document.getElementById('kpi-top-office').textContent    = byOffice[0].key;
+    document.getElementById('kpi-top-office-pct').textContent= fmtNum(byOffice[0].num)+' outliers';
+  }
+}
+
+// ── HEATMAP ──────────────────────────────────────────────────────────────────
+function setHmMode(m){
+  hmMode=m;
+  document.getElementById('hm-btn-pct').classList.toggle('active',m==='pct');
+  document.getElementById('hm-btn-vol').classList.toggle('active',m==='vol');
+  buildHeatmap();
+}
+
+function buildHeatmap(){
+  const wrap = document.getElementById('heatmap-wrap');
+  const offices = [...new Set(DATA.map(r=>r.office))].sort();
+  const teams   = [...new Set(DATA.map(r=>r.team))].sort().map(t=>t.replace('BR_','').replace(/_/g,' '));
+  const teamsFull = [...new Set(DATA.map(r=>r.team))].sort();
+  if(!offices.length||!teamsFull.length){ wrap.innerHTML='<div class="empty-msg">Sem dados para o filtro atual.</div>'; return; }
+
+  // build cell matrix
+  const matrix = {};
+  DATA.forEach(r=>{
+    const k = r.office+'|'+r.team;
+    if(!matrix[k]) matrix[k]={num:0,den:0};
+    matrix[k].num+=r.num; matrix[k].den+=r.den;
+  });
+
+  // max for vol scaling
+  const maxVol = Math.max(...Object.values(matrix).map(v=>v.num),1);
+  const maxPct = Math.max(...Object.values(matrix).map(v=>v.den>0?v.num/v.den:0),0.01);
+
+  let html = '<table class="heatmap-table"><thead><tr><th class="row-hdr">Office</th>';
+  teams.forEach(t=>{ html+=`<th title="${t}">${t.length>14?t.substring(0,12)+'…':t}</th>`; });
+  html += '</tr></thead><tbody>';
+  offices.forEach(office=>{
+    html+=`<tr><td class="row-label">${office}</td>`;
+    teamsFull.forEach(tf=>{
+      const cell = matrix[office+'|'+tf];
+      if(!cell||cell.den===0){ html+='<td style="background:#F8F8F8;color:#ccc">—</td>'; return; }
+      const pct  = cell.num/cell.den;
+      const cls  = hmMode==='pct' ? heatClass(pct) : heatClassVol(cell.num/maxVol);
+      const val  = hmMode==='pct' ? fmtPct(pct) : fmtNum(cell.num);
+      html+=`<td class="${cls}" title="${fmtPct(pct)} | ${fmtNum(cell.num)} outliers / ${fmtNum(cell.den)} casos">${val}</td>`;
+    });
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  wrap.innerHTML = html;
+  document.getElementById('hm-legend').style.display='flex';
+}
+
+function heatClass(pct){
+  if(pct<0.10) return 'heat-0';
+  if(pct<0.20) return 'heat-1';
+  if(pct<0.30) return 'heat-2';
+  if(pct<0.40) return 'heat-3';
+  return 'heat-4';
+}
+function heatClassVol(ratio){
+  if(ratio<0.10) return 'heat-0';
+  if(ratio<0.30) return 'heat-1';
+  if(ratio<0.55) return 'heat-2';
+  if(ratio<0.80) return 'heat-3';
+  return 'heat-4';
+}
+
+// ── PARETO ────────────────────────────────────────────────────────────────────
+function buildPareto(){
+  const dim    = document.getElementById('pareto-dim')?.value    || 'process';
+  const metric = document.getElementById('pareto-metric')?.value || 'outliers';
+  if(!DATA.length) return;
+
+  // explode array fields
+  const exploded = [];
+  DATA.forEach(r=>{
+    const keys = dim==='process' ? r.processes : dim==='cdu' ? r.cdus : r.solutions;
+    if(!keys||!keys.length){ exploded.push({key:'(sem dado)',num:r.num,den:r.den}); return; }
+    keys.forEach(k=>{ exploded.push({key:k,num:r.num/keys.length,den:r.den/keys.length}); });
+  });
+
+  const groups = {};
+  exploded.forEach(r=>{
+    if(!groups[r.key]) groups[r.key]={num:0,den:0};
+    groups[r.key].num+=r.num; groups[r.key].den+=r.den;
+  });
+  let items = Object.entries(groups).map(([k,v])=>({
+    key:k, num:v.num, den:v.den, pct:v.den>0?v.num/v.den:0
+  }));
+  items.sort((a,b)=> metric==='pct' ? b.pct-a.pct : b.num-a.num);
+  items = items.slice(0,15);
+
+  const totalOutliers = items.reduce((s,r)=>s+r.num,0);
+  let cum=0;
+  const paretoLine = items.map(it=>{ cum+=it.num; return Math.round(cum/totalOutliers*100); });
+
+  const labels = items.map(i=>i.key.length>22?i.key.substring(0,20)+'…':i.key);
+  const barData = items.map(i=> metric==='pct' ? Math.round(i.pct*1000)/10 : Math.round(i.num));
+
+  if(paretoChart) paretoChart.destroy();
+  paretoChart = new Chart(document.getElementById('pareto-chart'),{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        { type:'bar', label: metric==='pct'?'% Outlier':'Vol. Outliers',
+          data:barData, backgroundColor:'rgba(242,61,79,.75)', yAxisID:'y' },
+        { type:'line', label:'Acumulado %',
+          data:paretoLine, borderColor:'#3483FA', borderWidth:2,
+          pointRadius:3, pointBackgroundColor:'#3483FA',
+          fill:false, tension:0, yAxisID:'y2' }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false},datalabels:{display:false}},
+      scales:{
+        x:{ticks:{font:{size:9},maxRotation:40}},
+        y:{title:{display:true,text:metric==='pct'?'% Outlier':'Outliers',font:{size:10}},
+           ticks:{font:{size:10}},grid:{color:'#F5F5F5'}},
+        y2:{position:'right',min:0,max:100,
+            title:{display:true,text:'Acum. %',font:{size:10}},
+            ticks:{font:{size:10},callback:v=>v+'%'},grid:{display:false}}
+      }
+    }
+  });
+}
+
+// ── SCATTER / BUBBLE ──────────────────────────────────────────────────────────
+function buildScatter(){
+  const dim = document.getElementById('scatter-dim')?.value || 'team';
+  if(!DATA.length) return;
+  const keyFn = dim==='team' ? r=>r.team : dim==='office' ? r=>r.office : r=>r.manager;
+  const groups = groupBy(DATA, keyFn);
+
+  const maxDen = Math.max(...groups.map(g=>g.den),1);
+  const TARGET_REF = 0.20;
+
+  const bubbles = groups.filter(g=>g.den>0).map(g=>({
+    x: g.den,
+    y: Math.round(g.pct*1000)/10,
+    r: Math.max(4, Math.sqrt(g.den/maxDen)*30),
+    label: g.key.replace('BR_','').replace(/_/g,' '),
+    num: g.num
+  }));
+
+  const colors = bubbles.map(b=>
+    b.y > TARGET_REF*100 ? 'rgba(242,61,79,.65)' : 'rgba(0,166,80,.55)'
+  );
+
+  if(scatterChart) scatterChart.destroy();
+  scatterChart = new Chart(document.getElementById('scatter-chart'),{
+    type:'bubble',
+    data:{
+      datasets:[{
+        label:'Segmentos',
+        data:bubbles,
+        backgroundColor:colors,
+        borderColor:colors.map(c=>c.replace('.65','.9').replace('.55','.9')),
+        borderWidth:1
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        datalabels:{display:false},
+        tooltip:{callbacks:{
+          label:ctx=>{
+            const b=ctx.raw;
+            return [`${b.label}`, `Vol: ${fmtNum(b.x)} casos`, `% Outlier: ${b.y.toFixed(1)}%`, `Outliers: ${fmtNum(b.num)}`];
+          }
+        }}
+      },
+      scales:{
+        x:{title:{display:true,text:'Volume de Casos',font:{size:10}},
+           ticks:{font:{size:10}},grid:{color:'#F5F5F5'}},
+        y:{title:{display:true,text:'% Outlier',font:{size:10}},
+           ticks:{font:{size:10},callback:v=>v+'%'},grid:{color:'#F5F5F5'}}
+      }
+    }
+  });
+
+  // linha de referência
+  scatterChart.options.plugins.annotation = {};
+}
+
+// ── MANAGER RANKING ───────────────────────────────────────────────────────────
+function buildManagers(){
+  const groupType  = document.getElementById('mgr-group')?.value  || 'manager';
+  const sortType   = document.getElementById('mgr-sort')?.value   || 'pct';
+  const onlyAbove  = document.getElementById('mgr-only-above')?.checked;
+  const TARGET_REF = 0.20;
+  const list       = document.getElementById('manager-list');
+  if(!DATA.length){ list.innerHTML='<div class="empty-msg">Carregue os dados.</div>'; return; }
+
+  const keyFn = groupType==='manager' ? r=>r.manager :
+                groupType==='sr_manager' ? r=>r.srmanager :
+                groupType==='team' ? r=>r.team : r=>r.office;
+  let groups = groupBy(DATA, keyFn);
+  if(onlyAbove) groups = groups.filter(g=>g.pct>TARGET_REF);
+  groups.sort((a,b)=>
+    sortType==='vol'     ? b.den-a.den :
+    sortType==='outliers'? b.num-a.num :
+    b.pct-a.pct
+  );
+
+  const maxNum = Math.max(...groups.map(g=>g.num),1);
+  const top    = groups.slice(0,30);
+  list.innerHTML = top.map((g,i)=>{
+    const pct   = g.pct;
+    const barW  = Math.round(g.num/maxNum*100);
+    const rankCls = pct>0.35?'r1': pct>0.25?'r2': pct>TARGET_REF?'r3': 'rok';
+    const valCls  = pct>0.35?'val-danger': pct>TARGET_REF?'val-warn': 'val-ok';
+    const barCls  = pct>0.35?'bar-danger': pct>TARGET_REF?'bar-warn': 'bar-ok';
+    const lbl     = g.key.replace('BR_','').replace(/_/g,' ');
+    return `<div class="mgr-row">
+      <div class="mgr-rank ${rankCls}">${i+1}</div>
+      <div class="mgr-name">${lbl.length>30?lbl.substring(0,28)+'…':lbl}</div>
+      <div class="mgr-bar-wrap"><div class="mgr-bar ${barCls}" style="width:${barW}%"></div></div>
+      <div class="mgr-val ${valCls}">${fmtPct(pct)}</div>
+      <div class="mgr-vol">${fmtNum(g.num)}/${fmtNum(g.den)}</div>
+    </div>`;
+  }).join('') || '<div class="empty-msg">Nenhum segmento encontrado.</div>';
+}
+
+// ── MOM ────────────────────────────────────────────────────────────────────────
+function buildMoM(){
+  const groupType = document.getElementById('mom-group')?.value || 'team';
+  const sortType  = document.getElementById('mom-sort')?.value  || 'delta_desc';
+  const tbody     = document.getElementById('mom-tbody');
+  if(!RAW.length){ tbody.innerHTML='<tr><td colspan="7" class="empty-msg">Carregue os dados.</td></tr>'; return; }
+
+  const dates = [...new Set(RAW.map(r=>r.date))].sort();
+  if(dates.length<2){ tbody.innerHTML='<tr><td colspan="7" class="empty-msg">Necessário ao menos 2 meses de dados.</td></tr>'; return; }
+
+  const curDate  = dates[dates.length-1];
+  const prevDate = dates[dates.length-2];
+  const filters  = getFilters();
+  const filterFn = r=>
+    (filters.team==='ALL'||r.team===filters.team)&&
+    (filters.office==='ALL'||r.office===filters.office)&&
+    (filters.canal==='ALL'||r.canal===filters.canal)&&
+    (filters.srmanager==='ALL'||r.srmanager===filters.srmanager);
+
+  const curRows  = RAW.filter(r=>r.date===curDate  && filterFn(r));
+  const prevRows = RAW.filter(r=>r.date===prevDate && filterFn(r));
+
+  const keyFn = groupType==='team'?r=>r.team:groupType==='office'?r=>r.office:r=>r.manager;
+  const curG  = groupBy(curRows,  keyFn);
+  const prevG = groupBy(prevRows, keyFn);
+  const prevMap = {};
+  prevG.forEach(g=>prevMap[g.key]=g);
+
+  let rows = curG.map(g=>{
+    const prev = prevMap[g.key];
+    const delta = prev ? g.pct - prev.pct : null;
+    return {...g, prevPct: prev?prev.pct:null, delta};
+  });
+
+  rows.sort((a,b)=>
+    sortType==='delta_desc' ? (b.delta??-9)-(a.delta??-9) :
+    sortType==='delta_asc'  ? (a.delta??9 )-(b.delta??9 ) :
+    b.pct-a.pct
+  );
+
+  const [cy,cm] = curDate.split('-');
+  const [py,pm] = prevDate.split('-');
+  const curLbl  = (MONTH_LABELS[cm]||cm)+'/'+cy;
+  const prevLbl = (MONTH_LABELS[pm]||pm)+'/'+py;
+
+  // update header
+  const ths = document.querySelectorAll('#mom-table thead th');
+  if(ths[3]) ths[3].textContent = `% Outlier ${curLbl}`;
+  if(ths[4]) ths[4].textContent = `% Outlier ${prevLbl}`;
+
+  tbody.innerHTML = rows.slice(0,30).map(r=>{
+    const lbl = r.key.replace('BR_','').replace(/_/g,' ');
+    const trendHtml = r.delta===null ? '<span class="trend-pill trend-neu">sem M-1</span>' :
+      r.delta>0.005 ? `<span class="trend-pill trend-up">▲ +${(r.delta*100).toFixed(1)}pp</span>` :
+      r.delta<-0.005? `<span class="trend-pill trend-dn">▼ ${(r.delta*100).toFixed(1)}pp</span>` :
+      '<span class="trend-pill trend-neu">→ estável</span>';
+    const pctCls = r.pct>0.30?'val-neg':r.pct>0.20?'val-wrn':'val-pos';
+    return `<tr>
+      <td>${lbl}</td>
+      <td class="tr">${fmtNum(r.den)}</td>
+      <td class="tr">${fmtNum(r.num)}</td>
+      <td class="tr ${pctCls}">${fmtPct(r.pct)}</td>
+      <td class="tr">${r.prevPct!==null?fmtPct(r.prevPct):'—'}</td>
+      <td class="tr">${r.delta!==null?(r.delta>=0?'+':'')+''+(r.delta*100).toFixed(1)+'pp':'—'}</td>
+      <td class="tr">${trendHtml}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── CDU ───────────────────────────────────────────────────────────────────────
+function buildCDU(){
+  const level  = document.getElementById('cdu-level')?.value  || 'cdu';
+  const sort   = document.getElementById('cdu-sort')?.value   || 'outliers';
+  const search = (document.getElementById('cdu-search')?.value||'').toLowerCase();
+  const tbody  = document.getElementById('cdu-tbody');
+  if(!DATA.length){ tbody.innerHTML='<tr><td colspan="8" class="empty-msg">Carregue os dados.</td></tr>'; return; }
+
+  const exploded = [];
+  DATA.forEach(r=>{
+    const arr = level==='cdu'?r.cdus:level==='subcdu'?r.subcdus:level==='process'?r.processes:r.solutions;
+    if(!arr||!arr.length){ exploded.push({key:'(sem dado)',num:r.num,den:r.den}); return; }
+    arr.forEach(k=>exploded.push({key:k,num:r.num/arr.length,den:r.den/arr.length}));
+  });
+
+  const groups = {};
+  exploded.forEach(r=>{
+    if(!groups[r.key]) groups[r.key]={num:0,den:0};
+    groups[r.key].num+=r.num; groups[r.key].den+=r.den;
+  });
+  let items = Object.entries(groups).map(([k,v])=>({
+    key:k, num:v.num, den:v.den, pct:v.den>0?v.num/v.den:0
+  }));
+  if(search) items=items.filter(i=>i.key.toLowerCase().includes(search));
+  items.sort((a,b)=> sort==='pct'?b.pct-a.pct : sort==='total'?b.den-a.den : b.num-a.num);
+
+  const totalOut = items.reduce((s,i)=>s+i.num,0);
+  let cum=0;
+  const typeLabel = {'cdu':'CDU','subcdu':'Sub-CDU','process':'Processo','solution':'Solução'}[level]||level;
+  const bdgCls    = {'cdu':'bdg-cdu','subcdu':'bdg-sub','process':'bdg-off','solution':'bdg-off'}[level]||'bdg-cdu';
+
+  tbody.innerHTML = items.slice(0,40).map((it,i)=>{
+    cum+=it.num;
+    const pctCls = it.pct>0.30?'val-neg':it.pct>0.20?'val-wrn':'val-pos';
+    const paretoAcum = totalOut>0?Math.round(cum/totalOut*100):0;
+    return `<tr>
+      <td>${i+1}</td>
+      <td>${it.key}</td>
+      <td><span class="badge ${bdgCls}">${typeLabel}</span></td>
+      <td class="tr">${fmtNum(it.den)}</td>
+      <td class="tr">${fmtNum(it.num)}</td>
+      <td class="tr ${pctCls}">${fmtPct(it.pct)}</td>
+      <td class="tr">${totalOut>0?fmtPct(it.num/totalOut):'—'}</td>
+      <td class="tr" style="font-weight:700;color:${paretoAcum<=80?'#3483FA':'#888'}">${paretoAcum}%</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── SENIORIDADE ───────────────────────────────────────────────────────────────
+function buildSeniority(){
+  if(!DATA.length) return;
+  const groups = groupBy(DATA, r=>r.seniority).sort((a,b)=>b.pct-a.pct);
+  const TARGET = 0.20;
+
+  // tiles
+  const grid = document.getElementById('sen-grid');
+  grid.innerHTML = groups.map(g=>{
+    const cls = g.pct>0.30?'st-danger': g.pct>TARGET?'st-warn': 'st-ok';
+    return `<div class="sen-tile ${cls}">
+      <div class="st-name">${g.key}</div>
+      <div class="st-val">${fmtPct(g.pct)}</div>
+      <div class="st-sub">${fmtNum(g.num)} outliers / ${fmtNum(g.den)} casos</div>
+    </div>`;
+  }).join('');
+
+  // bar chart
+  if(senChart) senChart.destroy();
+  senChart = new Chart(document.getElementById('sen-chart'),{
+    type:'bar',
+    data:{
+      labels: groups.map(g=>g.key),
+      datasets:[
+        {label:'% Outlier',data:groups.map(g=>Math.round(g.pct*1000)/10),
+         backgroundColor:groups.map(g=>g.pct>0.30?'rgba(242,61,79,.8)':g.pct>TARGET?'rgba(255,119,51,.8)':'rgba(0,166,80,.7)'),
+         yAxisID:'y'},
+        {label:'Volume',data:groups.map(g=>g.den),type:'line',
+         borderColor:'#3483FA',borderWidth:2,pointRadius:4,
+         fill:false,tension:0,yAxisID:'y2'}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'top',labels:{font:{size:10}}},datalabels:{display:false}},
+      scales:{
+        x:{ticks:{font:{size:10}}},
+        y:{title:{display:true,text:'% Outlier',font:{size:10}},
+           ticks:{font:{size:10},callback:v=>v+'%'},grid:{color:'#F5F5F5'}},
+        y2:{position:'right',title:{display:true,text:'Volume',font:{size:10}},
+            ticks:{font:{size:10}},grid:{display:false}}
+      }
+    }
+  });
+}
+
+// ── CONCENTRAÇÃO ───────────────────────────────────────────────────────────────
+function buildConcentration(){
+  const dim  = document.getElementById('conc-dim')?.value || 'team';
+  const wrap = document.getElementById('conc-list');
+  if(!DATA.length){ wrap.innerHTML='<div class="empty-msg">Carregue os dados.</div>'; return; }
+
+  const keyFn = dim==='team'?r=>r.team:dim==='office'?r=>r.office:dim==='manager'?r=>r.manager:r=>(r.processes[0]||'(sem processo)');
+  const groups = groupBy(DATA, keyFn).sort((a,b)=>b.num-a.num);
+  const maxDen = Math.max(...groups.map(g=>g.den),1);
+  const maxNum = Math.max(...groups.map(g=>g.num),1);
+
+  wrap.innerHTML = groups.slice(0,20).map(g=>{
+    const barNumW = Math.round(g.den/maxDen*100);
+    const barOutW = Math.round(g.num/maxDen*100);
+    const lbl = g.key.replace('BR_','').replace(/_/g,' ');
+    const pctCls = g.pct>0.30?'val-danger':g.pct>0.20?'val-warn':'val-ok';
+    return `<div class="conc-row">
+      <div class="conc-label" title="${g.key}">${lbl}</div>
+      <div class="conc-bar-wrap" style="position:relative;height:14px">
+        <div class="conc-bar-num" style="width:${barNumW}%"></div>
+        <div class="conc-bar-out" style="width:${barOutW}%"></div>
+      </div>
+      <div class="conc-val ${pctCls}">${fmtPct(g.pct)}</div>
+      <div class="conc-pct-num">${fmtNum(g.num)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── TABS ───────────────────────────────────────────────────────────────────────
+function switchTab(id){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  document.getElementById('tab-btn-'+id).classList.add('active');
+  document.getElementById('tab-'+id).classList.add('active');
+}
+
+// ── DADOS DE EXEMPLO ──────────────────────────────────────────────────────────
+function loadSampleData(){
+  const teams   = ['BR_Buyers_Pre_Entrega','BR_Buyers_Post_Entrega','BR_Buyers_Compra','BR_MED_PNRME_Offline','BR_MED_PNRMP_Offline'];
+  const offices = ['TP','WH','INT','ATE','KTA'];
+  const canais  = ['OFFLINE','MULTICANAL C2C','MULTICANAL CHAT'];
+  const managers= ['Manager_A','Manager_B','Manager_C','Manager_D','Manager_E'];
+  const srmgrs  = ['SR_Norte','SR_Sul','SR_Centro'];
+  const seniorities = ['Rookie','Junior','Mid','Senior','Expert'];
+  const cdus    = ['CDU_Logistica','CDU_Pagamento','CDU_Produto','CDU_Conta','CDU_Entrega'];
+  const subcdus = ['Sub_Rastreio','Sub_Cancelamento','Sub_Troca','Sub_Reembolso','Sub_Cadastro'];
+  const procs   = ['Rastreio de Pedido','Cancelamento','Troca de Produto','Reembolso','Cadastro'];
+  const sols    = ['Solucao_Automatica','Solucao_Manual','Solucao_Escalada'];
+  const dates   = ['2025-01-01','2025-02-01'];
+  const sample  = [];
+  dates.forEach(dt=>{
+    teams.forEach(tm=>{
+      offices.forEach(of=>{
+        const canal = canais[Math.floor(Math.random()*canais.length)];
+        const den   = Math.floor(Math.random()*300)+50;
+        const pct   = 0.10 + Math.random()*0.35;
+        const num   = Math.floor(den*pct);
+        sample.push({
+          DATE_ID:dt, CX_TEAM_NAME:tm, USER_OFFICE:of, CANAL:canal,
+          CS_MANAGER:managers[Math.floor(Math.random()*managers.length)],
+          CS_SR_MANAGER:srmgrs[Math.floor(Math.random()*srmgrs.length)],
+          USER_AGE_SUBGROUP_NAME:seniorities[Math.floor(Math.random()*seniorities.length)],
+          NUMERATOR:num, DENOMINATOR:den,
+          PROCESS_NAME_LIST:[procs[Math.floor(Math.random()*procs.length)],procs[Math.floor(Math.random()*procs.length)]],
+          CDU_LIST:[cdus[Math.floor(Math.random()*cdus.length)]],
+          SUB_CDU_LIST:[subcdus[Math.floor(Math.random()*subcdus.length)]],
+          SOLUTION_NAME_LIST:[sols[Math.floor(Math.random()*sols.length)]]
+        });
+      });
+    });
+  });
+  processImport(sample);
+  switchTab('managers');
+}
+
+// ── FORMATTERS ─────────────────────────────────────────────────────────────────
+function fmtNum(n){ return Math.round(n).toLocaleString('pt-BR'); }
+function fmtPct(p){ return (p*100).toFixed(1)+'%'; }
+
+// ── CSS helpers (val classes for table td) ────────────────────────────────────
+const style2=document.createElement('style');
+style2.textContent=`.val-neg{color:#F23D4F;font-weight:700}.val-wrn{color:#FF7733;font-weight:700}.val-pos{color:#00A650;font-weight:700}`;
+document.head.appendChild(style2);
+
+// ── AUTO-LOAD: carrega data_recontato.js se disponível ───────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  if (window.RECONTATO_DATA && window.RECONTATO_DATA.length) {
+    processImport(window.RECONTATO_DATA);
+    // mostra data de geração na topbar
+    if (window.RECONTATO_GENERATED_AT) {
+      const badge = document.getElementById('topbar-period');
+      if (badge) badge.title = 'Dados gerados em ' + window.RECONTATO_GENERATED_AT;
+    }
+  }
+});
+</script>
+</body>
+</html>
