@@ -824,6 +824,11 @@ function groupBy(rows, keyFn){
 
 // ── RENDER PRINCIPAL ──────────────────────────────────────────────────────────
 function render(){
+  // se o período ainda não foi inicializado (valor 'ALL' ou vazio) mas já há dados, forçar populatePeriods
+  const periodSel = document.getElementById('f-period');
+  if(RAW.length && (!periodSel.value || periodSel.value === 'ALL')){
+    populatePeriods();
+  }
   applyFilters();
   if(!DATA.length) return;
   buildKPIs();
