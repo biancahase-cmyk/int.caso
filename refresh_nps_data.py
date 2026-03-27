@@ -708,11 +708,14 @@ def main():
     print(f"[{datetime.now():%H:%M:%S}] Publicando no GitHub...")
     git("add", "data.js")
     git("commit", "-m", f"dados: atualização automática {datetime.now():%Y-%m-%d %H:%M}")
-    if git("push", "origin", "main"):
-        print(f"[{datetime.now():%H:%M:%S}] Publicado! Relatório atualizado em:")
+    ok1 = git("push", "origin", "main")
+    ok2 = git("push", "waterfallnps", "main")
+    if ok1 or ok2:
+        print(f"[{datetime.now():%H:%M:%S}] Publicado! Relatorios atualizados em:")
         print("  https://biancahase-cmyk.github.io/nps_gap_offices/")
+        print("  https://biancahase-cmyk.github.io/waterfallnps/waterfall_impactos.html")
     else:
-        print(f"[{datetime.now():%H:%M:%S}] Erro no push — verifique credenciais do Git.")
+        print(f"[{datetime.now():%H:%M:%S}] Erro no push -- verifique credenciais do Git.")
 
 
 if __name__ == "__main__":
