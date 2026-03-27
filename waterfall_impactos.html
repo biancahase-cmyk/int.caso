@@ -1267,7 +1267,9 @@ function buildComentarios() {
   const fCanal=document.getElementById('com-f-canal')?.value||'ALL';
   const fProc =document.getElementById('com-f-proc')?.value ||'ALL';
 
-  // Opções dinâmicas para Processo
+  // Opções dinâmicas geradas dos dados reais
+  const equipes=[...new Set(allComments.map(c=>c.team).filter(Boolean))].sort();
+  const canais =[...new Set(allComments.map(c=>c.ch).filter(Boolean))].sort();
   const processos=[...new Set(allComments.map(c=>c.processo).filter(Boolean))].sort();
 
   const filtersHtml=`<div class="section-filters" style="margin-bottom:14px">
@@ -1282,16 +1284,12 @@ function buildComentarios() {
     <div class="fg"><label>Equipe</label>
       <select class="sfsel" id="com-f-team" onchange="buildComentarios()">
         <option value="ALL">Todas</option>
-        <option value="BR_Buyers_Pre_Entrega"  ${fTeam==='BR_Buyers_Pre_Entrega'?'selected':''}>Pré-Entrega</option>
-        <option value="BR_Buyers_Post_Entrega" ${fTeam==='BR_Buyers_Post_Entrega'?'selected':''}>Pós-Entrega</option>
-        <option value="BR_Buyers_Compra"       ${fTeam==='BR_Buyers_Compra'?'selected':''}>Compra</option>
+        ${equipes.map(t=>`<option value="${t}" ${fTeam===t?'selected':''}>${TEAM_LABEL[t]||t}</option>`).join('')}
       </select></div>
     <div class="fg"><label>Canal</label>
       <select class="sfsel" id="com-f-canal" onchange="buildComentarios()">
         <option value="ALL">Todos</option>
-        <option value="MULTICANAL C2C"  ${fCanal==='MULTICANAL C2C'?'selected':''}>C2C</option>
-        <option value="MULTICANAL CHAT" ${fCanal==='MULTICANAL CHAT'?'selected':''}>Chat</option>
-        <option value="OFFLINE"         ${fCanal==='OFFLINE'?'selected':''}>Offline</option>
+        ${canais.map(c=>`<option value="${c}" ${fCanal===c?'selected':''}>${CH_LABEL[c]||c}</option>`).join('')}
       </select></div>
     <div class="fg"><label>Processo</label>
       <select class="sfsel" id="com-f-proc" onchange="buildComentarios()">
