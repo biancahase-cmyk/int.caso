@@ -301,7 +301,8 @@ tr:hover td{background:#FAFAFA}
       <span class="drill-bc-item active">Todos os dados</span>
     </div>
 
-    <!-- 4 waterfalls cascadeados -->
+    <!-- 4 waterfalls WoW -->
+    <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#3483FA;background:#EBF3FF;padding:5px 12px;border-radius:6px;margin-bottom:10px;display:inline-block">Impacto Variação WoW</div>
     <div class="drill-grid">
       <div class="drill-card">
         <div class="drill-card-hdr">
@@ -334,6 +335,27 @@ tr:hover td{background:#FAFAFA}
           <button class="drill-reset-btn" id="drill-reset-4" onclick="drillReset(4)" style="display:none">× limpar</button>
         </div>
         <div class="drill-canvas-wrap" id="drill-canvas-4"></div>
+      </div>
+    </div>
+
+    <!-- 4 waterfalls vs Target -->
+    <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:#00A650;background:#E6F9F1;padding:5px 12px;border-radius:6px;margin:18px 0 10px;display:inline-block">Impacto vs Target</div>
+    <div class="drill-grid">
+      <div class="drill-card">
+        <div class="drill-card-hdr"><span class="drill-card-num">1</span><span class="drill-card-dim">Por Office</span></div>
+        <div class="drill-canvas-wrap" id="tgt-canvas-1"></div>
+      </div>
+      <div class="drill-card">
+        <div class="drill-card-hdr"><span class="drill-card-num">2</span><span class="drill-card-dim">Por Canal</span></div>
+        <div class="drill-canvas-wrap" id="tgt-canvas-2"></div>
+      </div>
+      <div class="drill-card">
+        <div class="drill-card-hdr"><span class="drill-card-num">3</span><span class="drill-card-dim">Por Processo</span></div>
+        <div class="drill-canvas-wrap" id="tgt-canvas-3"></div>
+      </div>
+      <div class="drill-card">
+        <div class="drill-card-hdr"><span class="drill-card-num">4</span><span class="drill-card-dim">Por CDU</span></div>
+        <div class="drill-canvas-wrap" id="tgt-canvas-4"></div>
       </div>
     </div>
 
@@ -392,6 +414,7 @@ const F    = { tipo:'SEMANA', period:null, team:'ALL', canal:'ALL', office:'ALL'
 const WF   = { sort:'opp' };
 const DRILL= { office:null, canal:null, processo:null, cdu:null };
 let drillCharts = [null, null, null, null];
+let tgtCharts   = [null, null, null, null];
 let wfChartInst = null; // compat
 let activeTab   = 'office';
 
@@ -673,6 +696,110 @@ function buildDrillWaterfall(level, dimKey, rows, prevRows, selectedKey) {
   });
 }
 
+function buildTgtWaterfall(level, dimKey, rows) {
+  const wrap=document.getElementById('tgt-canvas-'+level);
+  if(!wrap) return;
+
+  let segs=aggregateBy(rows,dimKey).filter(s=>s.enc>=5);
+  if(!segs.length){
+    wrap.innerHTML='<div class="empty-msg" style="padding:20px 0;text-align:center;font-size:11px;color:#aaa">Sem dados</div>';
+    return;
+  }
+
+  // Ordena pelo maior impacto negativo vs target
+  segs.sort((a,b)=>a.contribution-b.contribution);
+
+  // Bucketing worst 4 + Outros + best 4
+  const MAX_EACH=4;
+  if(segs.length>MAX_EACH*2){
+    const worst=segs.slice(0,MAX_EACH);
+    const best =segs.slice(segs.length-MAX_EACH);
+    const mid  =segs.slice(MAX_EACH,segs.length-MAX_EACH);
+    const othEnc=mid.reduce((s,x)=>s+x.enc,0);
+    const outros={
+      key:`Outros (${mid.length})`,enc:othEnc,
+      nps:othEnc?mid.reduce((s,x)=>s+x.nps*x.enc,0)/othEnc:0,
+      target:othEnc?mid.reduce((s,x)=>s+x.target*x.enc,0)/othEnc:0,
+      gap:othEnc?mid.reduce((s,x)=>s+x.gap*x.enc,0)/othEnc:0,
+      contribution:mid.reduce((s,x)=>s+x.contribution,0),
+      weight:mid.reduce((s,x)=>s+x.weight,0),
+      det:mid.reduce((s,x)=>s+(x.det||0),0),isOther:true,
+    };
+    segs=[...worst,outros,...best];
+  }
+
+  const summary=weightedSummary(rows)||{nps:0,target:0};
+  const npsAtual=parseFloat(summary.nps.toFixed(2));
+  const target  =parseFloat(summary.target.toFixed(2));
+
+  const floor=Math.max(0,Math.floor((Math.min(target,npsAtual)-8)/5)*5);
+  const ceil =Math.ceil( (Math.max(target,npsAtual)+4)/5)*5;
+
+  const labels=['Target'];
+  const barsData=[[floor,target]];
+  const colors=['rgba(150,150,150,0.85)'];
+  const dlLabels=[target.toFixed(1)+'%'];
+  const dlColors=['#555'];
+
+  let running=target;
+  segs.forEach(s=>{
+    const isNeg=s.contribution<0;
+    const isOther=!!s.isOther;
+    const contrib=parseFloat(s.contribution.toFixed(2));
+    const lbl=dimKey==='ch'?(CH_LABEL[s.key]||s.key):(s.key.length>16?s.key.slice(0,14)+'…':s.key);
+    labels.push(lbl);
+    const start=running;
+    running=parseFloat((running+contrib).toFixed(2));
+    const lo=Math.min(start,running), hi=Math.max(start,running);
+    barsData.push([parseFloat(lo.toFixed(2)),parseFloat(hi.toFixed(2))]);
+    colors.push(isOther?'rgba(180,180,180,0.85)':isNeg?'rgba(242,61,79,0.85)':'rgba(0,166,80,0.85)');
+    dlLabels.push((contrib>=0?'+':'')+contrib.toFixed(1)+' pp');
+    dlColors.push(isOther?'#888':isNeg?'#c0392b':'#1a7a3b');
+  });
+
+  labels.push('NPS Atual');
+  barsData.push([floor,npsAtual]);
+  colors.push('rgba(26,115,232,0.85)');
+  dlLabels.push(npsAtual.toFixed(1)+'%');
+  dlColors.push('#1557a0');
+
+  wrap.innerHTML='<canvas id="tgt-chart-'+level+'"></canvas>';
+  if(tgtCharts[level-1]){try{tgtCharts[level-1].destroy();}catch(e){}}
+  const ctx=document.getElementById('tgt-chart-'+level).getContext('2d');
+  const _segs=segs;
+  tgtCharts[level-1]=new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets:[{data:barsData,backgroundColor:colors,borderWidth:0,borderRadius:3,borderSkipped:false}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      layout:{padding:{top:22}},
+      plugins:{
+        legend:{display:false},
+        datalabels:{
+          display:true,
+          formatter:(_,c)=>dlLabels[c.dataIndex],
+          color:c=>dlColors[c.dataIndex],
+          font:{weight:700,size:9},
+          anchor:'end',align:'end',offset:1,clamp:false,
+        },
+        tooltip:{callbacks:{label:c=>{
+          const i=c.dataIndex;
+          if(i===0) return ` Target: ${target.toFixed(1)}%`;
+          if(i===labels.length-1) return ` NPS Atual: ${npsAtual.toFixed(1)}% | GAP: ${(npsAtual-target>=0?'+':'')+(npsAtual-target).toFixed(1)} pp`;
+          const s=_segs[i-1];
+          return [` GAP contribuição: ${(s.contribution>=0?'+':'')+s.contribution.toFixed(2)} pp`,
+                  ` NPS: ${s.nps.toFixed(1)}% | Meta: ${s.target.toFixed(1)}%`,
+                  ` Volume: ${fmtEnc(s.enc)} enc`];
+        }}}
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{font:{size:9},color:'#444',maxRotation:40,autoSkip:false}},
+        y:{min:floor,max:ceil,grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:9},color:'#999',callback:v=>v.toFixed(0)+'%'}}
+      }
+    }
+  });
+}
+
 function buildDrillAll() {
   const team=document.getElementById('wf-team').value;
 
@@ -734,6 +861,12 @@ function buildDrillAll() {
     if(lbl4) lbl4.textContent='Por CDU';
   }
   buildDrillWaterfall(4,'cdu',r4,r4Prev,DRILL.cdu);
+
+  // TGT charts (vs Target)
+  buildTgtWaterfall(1,'office',r1);
+  buildTgtWaterfall(2,'ch',r2);
+  buildTgtWaterfall(3,'processo',r3);
+  buildTgtWaterfall(4,'cdu',r4);
 
   buildSimulation();
 }
